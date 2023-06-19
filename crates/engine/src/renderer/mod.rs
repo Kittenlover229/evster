@@ -1,10 +1,13 @@
+use nalgebra_glm::vec3;
 use wgpu::{util::DeviceExt, BindGroup};
 use winit::{event::WindowEvent, window::Window};
 
 mod atlas;
+mod camera;
 mod vertex;
 
 pub use atlas::*;
+pub use camera::*;
 pub use vertex::*;
 
 const VERTICES: &[Vertex] = &[
@@ -45,8 +48,12 @@ pub struct Renderer {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
 
+    pub camera: Camera,
+    pub camera_buffer: wgpu::Buffer,
+    pub camera_bind_group: BindGroup,
+
     pub atlas: Atlas,
-    pub bind_group: BindGroup,
+    pub atlas_bind_group: BindGroup,
 }
 
 impl Renderer {
@@ -84,6 +91,41 @@ impl Renderer {
             )
             .await
             .unwrap();
+
+        let camera = Camera {
+            position: vec3(0., 0., 0.),
+            ratio: 16f32 / 9f32,
+        };
+
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[CameraRaw::from(&camera)]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("Camera Bind Group Layout"),
+            });
+
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+            label: Some("Camera Bind Group"),
+        });
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -145,7 +187,7 @@ impl Renderer {
         let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/main.wgsl"));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout"),
-            bind_group_layouts: &[&atlas_bind_layout],
+            bind_group_layouts: &[&atlas_bind_layout, &camera_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -184,7 +226,7 @@ impl Renderer {
             multiview: None,
         });
 
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let atlas_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &atlas_bind_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -196,11 +238,12 @@ impl Renderer {
                     resource: wgpu::BindingResource::Sampler(&atlas.sampler),
                 },
             ],
-            label: Some("diffuse_bind_group"),
+            label: Some("Atlas Bind Group"),
         });
 
         Renderer {
-            bind_group: diffuse_bind_group,
+            camera_bind_group,
+            atlas_bind_group,
             atlas,
             surface,
             device,
@@ -211,6 +254,8 @@ impl Renderer {
             pipeline,
             vertex_buffer,
             index_buffer,
+            camera,
+            camera_buffer,
         }
     }
 
@@ -257,7 +302,8 @@ impl Renderer {
             });
 
             render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, &self.bind_group, &[]);
+            render_pass.set_bind_group(0, &self.atlas_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
