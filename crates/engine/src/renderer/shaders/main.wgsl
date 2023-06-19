@@ -20,7 +20,7 @@ fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.tex_coords = model.tex_coords / 4f + vec2<f32>(0.25, 0.25);
+    out.tex_coords = (model.tex_coords / 4f + vec2<f32>(0.25, 0.25));
     out.clip_position = camera.view * vec4<f32>(model.position, 1.0);
     return out;
 }

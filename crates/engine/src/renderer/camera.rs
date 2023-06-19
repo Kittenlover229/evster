@@ -1,4 +1,4 @@
-use nalgebra_glm::{look_at_lh, vec3, Vec3};
+use nalgebra_glm::{look_at_lh, ortho_lh, vec3, Vec3, scaling};
 
 pub struct Camera {
     pub position: Vec3,
@@ -17,8 +17,9 @@ impl From<&'_ Camera> for CameraRaw {
             view_proj: {
                 let forward = vec3(0., 0., 1.);
                 let view = look_at_lh(&value.position, &forward, &vec3(0., 1., 0.));
+                let proj = ortho_lh(-value.ratio, value.ratio, -1.0, 1.0, -1.0, 1.0);
 
-                view.into()
+                (proj * view).into()
             },
         }
     }
