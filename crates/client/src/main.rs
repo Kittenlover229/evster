@@ -40,6 +40,7 @@ pub fn main() {
                 }
             }
         }
+
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
             renderer.update();
             match renderer.render() {
@@ -52,6 +53,7 @@ pub fn main() {
                 Err(e) => eprintln!("{:?}", e),
             }
         }
+
         Event::MainEventsCleared => {
             // RedrawRequested will only trigger once, unless we manually
             // request it.
