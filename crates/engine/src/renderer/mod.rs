@@ -1,24 +1,33 @@
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, BindGroup};
 use winit::{event::WindowEvent, window::Window};
 
+mod atlas;
 mod vertex;
-use vertex::Vertex;
+
+pub use atlas::*;
+pub use vertex::*;
 
 const VERTICES: &[Vertex] = &[
+    // Changed
     Vertex {
         position: [-0.0868241, 0.49240386, 0.0],
+        tex_coords: [0.4131759, 0.00759614],
     }, // A
     Vertex {
         position: [-0.49513406, 0.06958647, 0.0],
+        tex_coords: [0.0048659444, 0.43041354],
     }, // B
     Vertex {
         position: [-0.21918549, -0.44939706, 0.0],
+        tex_coords: [0.28081453, 0.949397],
     }, // C
     Vertex {
         position: [0.35966998, -0.3473291, 0.0],
+        tex_coords: [0.85967, 0.84732914],
     }, // D
     Vertex {
         position: [0.44147372, 0.2347359, 0.0],
+        tex_coords: [0.9414737, 0.2652641],
     }, // E
 ];
 
@@ -35,6 +44,9 @@ pub struct Renderer {
     pub pipeline: wgpu::RenderPipeline,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
+
+    pub atlas: Atlas,
+    pub bind_group: BindGroup,
 }
 
 impl Renderer {
@@ -106,10 +118,34 @@ impl Renderer {
 
         surface.configure(&device, &config);
 
+        let atlas = Atlas::default_from_device(&device, &queue);
+
+        let atlas_bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+            ],
+            label: Some("atlas_bind_layout"),
+        });
+
         let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/main.wgsl"));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[&atlas_bind_layout],
             push_constant_ranges: &[],
         });
 
@@ -148,7 +184,24 @@ impl Renderer {
             multiview: None,
         });
 
+        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &atlas_bind_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&atlas.sprites["root"].0.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&atlas.sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
+        });
+
         Renderer {
+            bind_group: diffuse_bind_group,
+            atlas,
             surface,
             device,
             queue,
@@ -204,6 +257,7 @@ impl Renderer {
             });
 
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &self.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);

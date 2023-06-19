@@ -8,3 +8,5 @@ log = "0.4.19"
 wgpu = "0.16.1"
 winit = "0.28.6"
 bytemuck = { version = "1.13.1", features = [ "derive" ] }
+image = { version = "0.24", features = ["png"] }
+hashbrown = "0.14.0"
