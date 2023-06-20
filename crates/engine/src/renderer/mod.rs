@@ -10,27 +10,6 @@ pub use atlas::*;
 pub use camera::*;
 pub use vertex::*;
 
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-0.5, -0.5, 0.0],
-        tex_coords: [0.0, 0.0],
-    }, // A
-    Vertex {
-        position: [0.5, -0.5, 0.0],
-        tex_coords: [1.0, 0.0],
-    }, // B
-    Vertex {
-        position: [-0.5, 0.5, 0.0],
-        tex_coords: [0.0, 1.0],
-    }, // C
-    Vertex {
-        position: [0.5, 0.5, 0.0],
-        tex_coords: [1.0, 1.0],
-    }, // D
-];
-
-const INDICES: &[u16] = &[0, 1, 2, 1, 3, 2];
-
 pub struct Renderer {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
@@ -40,9 +19,6 @@ pub struct Renderer {
     pub window: Window,
 
     pub pipeline: wgpu::RenderPipeline,
-    pub vertex_buffer: wgpu::Buffer,
-    pub index_buffer: wgpu::Buffer,
-
     pub camera: Camera,
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: BindGroup,
@@ -88,7 +64,7 @@ impl Renderer {
             .unwrap();
 
         let camera = Camera {
-            position: vec3(0., 0., 0.),
+            position: vec3(0., 0., -1.),
             ratio: 16f32 / 9f32,
         };
 
@@ -120,18 +96,6 @@ impl Renderer {
                 resource: camera_buffer.as_entire_binding(),
             }],
             label: Some("Camera Bind Group"),
-        });
-
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
         });
 
         let surface_caps = surface.get_capabilities(&adapter);
@@ -226,7 +190,7 @@ impl Renderer {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&atlas.sprites["root"].0.view),
+                    resource: wgpu::BindingResource::TextureView(&atlas.textures[0].1),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -247,8 +211,6 @@ impl Renderer {
             size,
             window,
             pipeline,
-            vertex_buffer,
-            index_buffer,
             camera,
             camera_buffer,
         }
@@ -307,12 +269,17 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
 
+            let target_sprite = &self.atlas.sprites[0];
+
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.atlas_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
+
+            render_pass.set_vertex_buffer(0, self.atlas.vertex_buffer.slice(..));
+            render_pass
+                .set_index_buffer(self.atlas.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+            render_pass.draw_indexed(0..6, 0, 0..1);
         }
 
         self.queue.submit([encoder.finish()]);

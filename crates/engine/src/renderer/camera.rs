@@ -1,4 +1,4 @@
-use nalgebra_glm::{look_at_lh, ortho_lh, vec3, Vec3, scaling};
+use nalgebra_glm::{look_at_lh, ortho_lh, vec3, Vec3};
 
 pub struct Camera {
     pub position: Vec3,

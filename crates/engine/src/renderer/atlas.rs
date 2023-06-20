@@ -1,19 +1,27 @@
 use hashbrown::HashMap;
 use image::GenericImageView;
+use wgpu::util::DeviceExt;
+
+use crate::Vertex;
 
 pub struct Atlas {
-    pub textures: Vec<wgpu::Texture>,
+    pub textures: Vec<(wgpu::Texture, wgpu::TextureView)>,
     pub sampler: wgpu::Sampler,
-    pub sprites: HashMap<String, (Sprite, Vec<Sprite>)>,
+
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+
+    pub sprites: Vec<Sprite>,
+    pub named_sprites: HashMap<String, (u32, Vec<u32>)>,
 }
 
 pub struct Sprite {
-    pub view: wgpu::TextureView,
+    pub sprite_index_range: (u16, u16),
 }
 
 impl Atlas {
     pub fn default_from_device(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let mut diffuse_bytes = include_bytes!("assets/debug.png");
+        let diffuse_bytes = include_bytes!("assets/debug.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
 
@@ -31,7 +39,7 @@ impl Atlas {
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            label: Some("tileset"),
+            label: Some("Atlas: tileset.png"),
             view_formats: &[],
         });
 
@@ -64,19 +72,71 @@ impl Atlas {
             ..Default::default()
         });
 
-        Self {
-            sprites: [(
-                "root".to_string(),
-                (
-                    Sprite {
-                        view: diffuse_texture_view,
+        let i_step = dimensions.0 / 4;
+        let j_step = dimensions.1 / 4;
+
+        let mut sprites = vec![];
+        let mut global_indices: Vec<u16> = vec![];
+        let mut global_vertices: Vec<Vertex> = vec![];
+
+        for i in 0..4 {
+            for j in 0..4 {
+                let i_off = (i_step * i) as f32 / dimensions.0 as f32;
+                let j_off = (j_step * j) as f32 / dimensions.1 as f32;
+                let i_off_end = (i_step * (i + 1)) as f32 / dimensions.0 as f32;
+                let j_off_end = (j_step * (j + 1)) as f32 / dimensions.1 as f32;
+                let idx = global_indices.len() as u16;
+
+                let verts = [
+                    Vertex {
+                        position: [-0.5, -0.5, 0.0],
+                        tex_coords: [i_off, j_off_end],
                     },
-                    vec![],
-                ),
-            )]
-            .into(),
+                    Vertex {
+                        position: [0.5, -0.5, 0.0],
+                        tex_coords: [i_off_end, j_off_end],
+                    },
+                    Vertex {
+                        position: [-0.5, 0.5, 0.0],
+                        tex_coords: [i_off, j_off],
+                    },
+                    Vertex {
+                        position: [0.5, 0.5, 0.0],
+                        tex_coords: [i_off_end, j_off],
+                    },
+                ]; // quad
+
+                let inds = [0, 1, 2, 1, 3, 2].map(|x| x + idx); // quad
+
+                let sprite = Sprite {
+                    sprite_index_range: (idx, idx + inds.len() as u16),
+                };
+
+                sprites.push(sprite);
+                global_indices.extend(inds);
+                global_vertices.extend(verts);
+            }
+        }
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Atlas Index Buffer"),
+            contents: bytemuck::cast_slice(&global_indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Atlas Vertex Buffer"),
+            contents: bytemuck::cast_slice(&global_vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        Self {
+            named_sprites: Default::default(),
+            index_buffer,
+            vertex_buffer,
+            sprites,
             sampler,
-            textures: vec![diffuse_texture],
+            textures: vec![(diffuse_texture, diffuse_texture_view)],
         }
     }
 }

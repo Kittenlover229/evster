@@ -489,6 +489,7 @@ dependencies = [
  "image",
  "log",
  "nalgebra-glm",
+ "smallvec",
  "wgpu",
  "winit",
 ]
