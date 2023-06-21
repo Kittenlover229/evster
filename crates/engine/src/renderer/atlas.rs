@@ -1,5 +1,7 @@
+use std::ops::Range;
+
 use hashbrown::HashMap;
-use image::GenericImageView;
+use image::{GenericImageView, ImageBuffer};
 use wgpu::util::DeviceExt;
 
 use crate::Vertex;
@@ -17,6 +19,12 @@ pub struct Atlas {
 
 pub struct Sprite {
     pub sprite_index_range: (u16, u16),
+}
+
+impl Sprite {
+    pub fn indices(&self) -> Range<u32> {
+        self.sprite_index_range.0 as u32..self.sprite_index_range.1 as u32
+    }
 }
 
 impl Atlas {
@@ -72,44 +80,38 @@ impl Atlas {
             ..Default::default()
         });
 
-        let i_step = dimensions.0 / 4;
-        let j_step = dimensions.1 / 4;
-
         let mut sprites = vec![];
         let mut global_indices: Vec<u16> = vec![];
         let mut global_vertices: Vec<Vertex> = vec![];
 
         for i in 0..4 {
             for j in 0..4 {
-                let i_off = (i_step * i) as f32 / dimensions.0 as f32;
-                let j_off = (j_step * j) as f32 / dimensions.1 as f32;
-                let i_off_end = (i_step * (i + 1)) as f32 / dimensions.0 as f32;
-                let j_off_end = (j_step * (j + 1)) as f32 / dimensions.1 as f32;
-                let idx = global_indices.len() as u16;
-
                 let verts = [
                     Vertex {
                         position: [-0.5, -0.5, 0.0],
-                        tex_coords: [i_off, j_off_end],
+                        tex_coords: [0.0, 1.0],
                     },
                     Vertex {
                         position: [0.5, -0.5, 0.0],
-                        tex_coords: [i_off_end, j_off_end],
+                        tex_coords: [1.0, 1.0],
                     },
                     Vertex {
                         position: [-0.5, 0.5, 0.0],
-                        tex_coords: [i_off, j_off],
+                        tex_coords: [0.0, 0.0],
                     },
                     Vertex {
                         position: [0.5, 0.5, 0.0],
-                        tex_coords: [i_off_end, j_off],
+                        tex_coords: [1.0, 0.0],
                     },
                 ]; // quad
 
-                let inds = [0, 1, 2, 1, 3, 2].map(|x| x + idx); // quad
+                let inds = [0, 1, 2, 1, 3, 2].map(|x| (x + verts.len()) as u16); // quad
 
                 let sprite = Sprite {
-                    sprite_index_range: (idx, idx + inds.len() as u16),
+                    sprite_index_range: (
+                        global_indices.len() as u16,
+                        (global_indices.len() + inds.len()) as u16,
+                    ),
                 };
 
                 sprites.push(sprite);

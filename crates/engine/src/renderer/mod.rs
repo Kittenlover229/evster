@@ -269,7 +269,12 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
 
-            let target_sprite = &self.atlas.sprites[0];
+            let target_sprite = &self.atlas.sprites[std::time::SystemTime::now()
+                .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as usize
+                / 250
+                % self.atlas.sprites.len() as usize];
 
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.atlas_bind_group, &[]);
@@ -279,7 +284,7 @@ impl Renderer {
             render_pass
                 .set_index_buffer(self.atlas.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..6, 0, 0..1);
+            render_pass.draw_indexed(target_sprite.indices(), 0, 0..1);
         }
 
         self.queue.submit([encoder.finish()]);
