@@ -270,11 +270,11 @@ impl Renderer {
             });
 
             let target_sprite = &self.atlas.sprites[std::time::SystemTime::now()
-                .duration_since(std::time::SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as usize
-                / 250
-                % self.atlas.sprites.len() as usize];
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as usize
+            / 500
+            % self.atlas.sprites.len() as usize];
 
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.atlas_bind_group, &[]);

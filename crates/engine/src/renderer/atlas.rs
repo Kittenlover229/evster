@@ -84,28 +84,34 @@ impl Atlas {
         let mut global_indices: Vec<u16> = vec![];
         let mut global_vertices: Vec<Vertex> = vec![];
 
-        for i in 0..4 {
-            for j in 0..4 {
+        let x_step = 0.25;
+        let y_step = 0.25;
+
+        for y in 0..4 {
+            for x in 0..4 {
+                let yy = y as f32 * y_step;
+                let xx = x as f32 * x_step;
+
                 let verts = [
                     Vertex {
                         position: [-0.5, -0.5, 0.0],
-                        tex_coords: [0.0, 1.0],
+                        tex_coords: [xx, yy + y_step],
                     },
                     Vertex {
                         position: [0.5, -0.5, 0.0],
-                        tex_coords: [1.0, 1.0],
+                        tex_coords: [xx + x_step, yy + y_step],
                     },
                     Vertex {
                         position: [-0.5, 0.5, 0.0],
-                        tex_coords: [0.0, 0.0],
+                        tex_coords: [xx, yy],
                     },
                     Vertex {
                         position: [0.5, 0.5, 0.0],
-                        tex_coords: [1.0, 0.0],
+                        tex_coords: [xx + x_step, yy],
                     },
                 ]; // quad
 
-                let inds = [0, 1, 2, 1, 3, 2].map(|x| (x + verts.len()) as u16); // quad
+                let inds = [0, 1, 2, 1, 3, 2].map(|x| (x + global_vertices.len()) as u16); // quad
 
                 let sprite = Sprite {
                     sprite_index_range: (
