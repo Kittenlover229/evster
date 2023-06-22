@@ -87,6 +87,7 @@ impl Renderer {
         let camera = Camera {
             position: vec3(0., 0., -1.),
             ratio: 16f32 / 9f32,
+            zoom: 1. / 10.,
         };
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
