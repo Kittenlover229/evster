@@ -17,20 +17,61 @@ pub use vertex::*;
 pub struct Instance {
     pub size: f32,
     pub pos: Vec2,
-    pub rotation: f32,
+
+    // Clockwise rotation of the sprite in degrees
+    pub angle: f32,
     pub tint: [u8; 3],
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
+    pub model: [[f32; 4]; 4],
     pub tint: [f32; 3],
-    pub model: [[f32; 3]; 3],
+}
+
+impl InstanceRaw {
+    pub fn layout() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                    shader_location: 5,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
+                    shader_location: 6,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
+                    shader_location: 7,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+            ],
+        }
+    }
 }
 
 impl From<&'_ Instance> for InstanceRaw {
     fn from(value: &'_ Instance) -> Self {
-        let model = glm::translation2d(&value.pos) * glm::rotation2d(value.rotation);
+        let model = glm::translation(&vec3(value.pos.x, value.pos.y, 0.0))
+            * glm::rotation(-value.angle * glm::pi::<f32>() / 180., &vec3(0., 0., 1.))
+            * glm::scaling(&vec3(value.size, value.size, value.size));
 
         InstanceRaw {
             tint: value.tint.map(|x| x as f32 / 255.),
@@ -233,7 +274,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[Vertex::layout()],
+                buffers: &[Vertex::layout(), InstanceRaw::layout()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -280,7 +321,7 @@ impl Renderer {
         let instances = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
             size: std::mem::size_of::<InstanceRaw>() as u64 * 96,
-            usage: BufferUsages::STORAGE,
+            usage: BufferUsages::COPY_DST | BufferUsages::VERTEX,
             mapped_at_creation: false,
         });
 
@@ -327,10 +368,6 @@ impl Renderer {
         }
     }
 
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
-        false
-    }
-
     pub fn window(&self) -> &Window {
         &self.window
     }
@@ -358,7 +395,7 @@ impl FrameBuilder<'_> {
         self
     }
 
-    pub fn end_frame(mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn end_frame(self) -> Result<(), wgpu::SurfaceError> {
         let FrameBuilder {
             renderer,
             command_queue,
@@ -416,22 +453,31 @@ impl FrameBuilder<'_> {
             render_pass.set_bind_group(1, &renderer.camera_bind_group, &[]);
 
             render_pass.set_vertex_buffer(0, renderer.atlas.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, renderer.instances.slice(..));
+
             render_pass.set_index_buffer(
                 renderer.atlas.index_buffer.slice(..),
                 wgpu::IndexFormat::Uint16,
             );
 
+            let mut instances = vec![];
             for cmd in command_queue {
                 match cmd {
                     RenderCommand::DrawSprite {
                         sprite_idx,
                         instance,
                     } => {
+                        let idx = instances.len() as u32;
+                        instances.push(InstanceRaw::from(&instance));
                         let target_sprite = &renderer.atlas.sprites[sprite_idx as usize];
-                        render_pass.draw_indexed(target_sprite.indices(), 0, 0..1)
+                        render_pass.draw_indexed(target_sprite.indices(), 0, idx..idx + 1)
                     }
                 }
             }
+
+            renderer
+                .queue
+                .write_buffer(&renderer.instances, 0, bytemuck::cast_slice(&instances));
         }
 
         renderer.queue.submit([encoder.finish()]);
