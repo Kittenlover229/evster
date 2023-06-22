@@ -7,6 +7,7 @@ edition = "2021"
 engine = { path = '../engine' }
 env_logger = "0.10.0"
 log = "0.4.19"
+nalgebra-glm = "0.18"
 pollster = "0.3.0"
 wgpu = "0.16.1"
 winit = "0.28.6"

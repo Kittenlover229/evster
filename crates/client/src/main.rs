@@ -1,10 +1,11 @@
+use nalgebra_glm::{vec2, Vec2};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
 
-use engine::Renderer;
+use engine::{Instance, Renderer};
 
 pub fn main() {
     env_logger::init();
@@ -43,20 +44,29 @@ pub fn main() {
 
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
             renderer.update();
-            match renderer.render() {
+
+            let rendered = renderer
+                .begin_frame()
+                .draw_sprite(
+                    5,
+                    Instance {
+                        size: 1.0,
+                        pos: vec2(0.0, 0.0),
+                        rotation: 0.0,
+                        tint: [255; 3],
+                    },
+                )
+                .end_frame();
+
+            match rendered {
                 Ok(_) => {}
-                // Reconfigure the surface if lost
                 Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
-                // The system is out of memory, we should probably quit
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                // All other errors (Outdated, Timeout) should be resolved by the next frame
                 Err(e) => eprintln!("{:?}", e),
             }
         }
 
         Event::MainEventsCleared => {
-            // RedrawRequested will only trigger once, unless we manually
-            // request it.
             renderer.window().request_redraw();
         }
         _ => {}

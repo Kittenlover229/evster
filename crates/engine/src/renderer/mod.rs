@@ -1,8 +1,9 @@
 use std::cell::{Cell, OnceCell};
 
 use bytemuck::{Pod, Zeroable};
-use nalgebra_glm::vec3;
-use wgpu::{util::DeviceExt, BindGroup};
+use nalgebra_glm as glm;
+use nalgebra_glm::{vec3, Vec2};
+use wgpu::{util::DeviceExt, BindGroup, BufferUsages};
 use winit::{event::WindowEvent, window::Window};
 
 mod atlas;
@@ -12,6 +13,31 @@ mod vertex;
 pub use atlas::*;
 pub use camera::*;
 pub use vertex::*;
+
+pub struct Instance {
+    pub size: f32,
+    pub pos: Vec2,
+    pub rotation: f32,
+    pub tint: [u8; 3],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct InstanceRaw {
+    pub tint: [f32; 3],
+    pub model: [[f32; 3]; 3],
+}
+
+impl From<&'_ Instance> for InstanceRaw {
+    fn from(value: &'_ Instance) -> Self {
+        let model = glm::translation2d(&value.pos) * glm::rotation2d(value.rotation);
+
+        InstanceRaw {
+            tint: value.tint.map(|x| x as f32 / 255.),
+            model: model.into(),
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -42,6 +68,7 @@ pub struct Renderer {
 
     /* misc */
     pub atlas: Atlas,
+    pub instances: wgpu::Buffer,
 
     /* bind groups */
     pub camera_bind_group: BindGroup,
@@ -134,13 +161,16 @@ impl Renderer {
 
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }, wgpu::BindGroupEntry {
-                binding: 1,
-                resource: time_buffer.as_entire_binding(),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: time_buffer.as_entire_binding(),
+                },
+            ],
             label: Some("Camera Bind Group"),
         });
 
@@ -247,7 +277,15 @@ impl Renderer {
             label: Some("Static Bind Group"),
         });
 
+        let instances = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance Buffer"),
+            size: std::mem::size_of::<InstanceRaw>() as u64 * 96,
+            usage: BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+
         Renderer {
+            instances,
             camera_bind_group,
             static_bind_group,
             atlas,
@@ -289,18 +327,53 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // Tick all the useful timers
+    pub fn input(&mut self, event: &WindowEvent) -> bool {
+        false
+    }
+
+    pub fn window(&self) -> &Window {
+        &self.window
+    }
+
+    pub fn begin_frame<'a>(&'a mut self) -> FrameBuilder<'a> {
+        FrameBuilder {
+            renderer: self,
+            command_queue: vec![],
+        }
+    }
+}
+
+pub struct FrameBuilder<'a> {
+    renderer: &'a mut Renderer,
+    command_queue: Vec<RenderCommand>,
+}
+
+impl FrameBuilder<'_> {
+    pub fn draw_sprite(mut self, sprite_idx: u32, instance: Instance) -> Self {
+        self.command_queue.push(RenderCommand::DrawSprite {
+            sprite_idx,
+            instance,
+        });
+
+        self
+    }
+
+    pub fn end_frame(mut self) -> Result<(), wgpu::SurfaceError> {
+        let FrameBuilder {
+            renderer,
+            command_queue,
+        } = self;
+
         let now = std::time::Instant::now();
-        let start_time = self.start_time.get_or_init(|| now);
+        let start_time = renderer.start_time.get_or_init(|| now);
         let time_since_start_millis =
             // There is probably a more idiomatic way to do this
             (now.duration_since(start_time.to_owned()).as_millis() % u32::MAX as u128) as u32;
         let delta_time = now
-            .duration_since(self.last_render_time.unwrap_or(now))
+            .duration_since(renderer.last_render_time.unwrap_or(now))
             .as_secs_f32();
-        self.queue.write_buffer(
-            &self.time_buffer,
+        renderer.queue.write_buffer(
+            &renderer.time_buffer,
             0,
             bytemuck::cast_slice(&[TimeRaw {
                 delta_time,
@@ -308,12 +381,12 @@ impl Renderer {
             }]),
         );
 
-        let output = self.surface.get_current_texture()?;
+        let output = renderer.surface.get_current_texture()?;
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = self
+        let mut encoder = renderer
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
@@ -338,35 +411,36 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
 
-            let target_sprite = &self.atlas.sprites[std::time::SystemTime::now()
-                .duration_since(std::time::SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as usize
-                / 500
-                % self.atlas.sprites.len() as usize];
+            render_pass.set_pipeline(&renderer.pipeline);
+            render_pass.set_bind_group(0, &renderer.static_bind_group, &[]);
+            render_pass.set_bind_group(1, &renderer.camera_bind_group, &[]);
 
-            render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_bind_group(0, &self.static_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, renderer.atlas.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(
+                renderer.atlas.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
 
-            render_pass.set_vertex_buffer(0, self.atlas.vertex_buffer.slice(..));
-            render_pass
-                .set_index_buffer(self.atlas.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-            render_pass.draw_indexed(target_sprite.indices(), 0, 0..1);
+            for cmd in command_queue {
+                match cmd {
+                    RenderCommand::DrawSprite {
+                        sprite_idx,
+                        instance,
+                    } => {
+                        let target_sprite = &renderer.atlas.sprites[sprite_idx as usize];
+                        render_pass.draw_indexed(target_sprite.indices(), 0, 0..1)
+                    }
+                }
+            }
         }
 
-        self.queue.submit([encoder.finish()]);
+        renderer.queue.submit([encoder.finish()]);
         output.present();
 
         Ok(())
     }
+}
 
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
-        false
-    }
-
-    pub fn window(&self) -> &Window {
-        &self.window
-    }
+pub enum RenderCommand {
+    DrawSprite { sprite_idx: u32, instance: Instance },
 }
