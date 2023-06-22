@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use hashbrown::HashMap;
-use image::{GenericImageView, ImageBuffer};
+use image::GenericImageView;
 use wgpu::util::DeviceExt;
 
 use crate::Vertex;
@@ -29,7 +29,7 @@ impl Sprite {
 
 impl Atlas {
     pub fn default_from_device(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let diffuse_bytes = include_bytes!("assets/debug.png");
+        let diffuse_bytes = include_bytes!("assets/tileset.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
 

@@ -1,3 +1,7 @@
+// Groups:
+// Group 0. Static Data: Textures, Samplers
+// Group 1. Hot Data: Camera Info, Time
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
@@ -12,8 +16,15 @@ struct CameraRaw {
     view: mat4x4<f32>,
 };
 
+struct TimeRaw {
+    dt: f32,
+    since_start: u32,
+};
+
 @group(1) @binding(0)
 var<uniform> camera: CameraRaw;
+@group(1) @binding(1)
+var<uniform> time: TimeRaw;
 
 @vertex
 fn vs_main(
@@ -21,7 +32,8 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
-    out.clip_position = camera.view * vec4<f32>(model.position, 1.0);
+    out.clip_position = camera.view * vec4<f32>(model.position, 1.0)
+                        + vec4<f32>(0.0, 0.2 * sin(f32(time.since_start) / 250.0), 0.0, 0.0);
     return out;
 }
 
