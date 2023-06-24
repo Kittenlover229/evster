@@ -382,15 +382,12 @@ impl Renderer {
 
 pub struct FrameBuilder<'a> {
     renderer: &'a mut Renderer,
-    command_queue: Vec<RenderCommand>,
+    command_queue: Vec<(u32, Instance)>,
 }
 
 impl FrameBuilder<'_> {
     pub fn draw_sprite(mut self, sprite_idx: u32, instance: Instance) -> Self {
-        self.command_queue.push(RenderCommand::DrawSprite {
-            sprite_idx,
-            instance,
-        });
+        self.command_queue.push((sprite_idx, instance));
 
         self
     }
@@ -461,18 +458,11 @@ impl FrameBuilder<'_> {
             );
 
             let mut instances = vec![];
-            for cmd in command_queue {
-                match cmd {
-                    RenderCommand::DrawSprite {
-                        sprite_idx,
-                        instance,
-                    } => {
-                        let idx = instances.len() as u32;
-                        instances.push(InstanceRaw::from(&instance));
-                        let target_sprite = &renderer.atlas.sprites[sprite_idx as usize];
-                        render_pass.draw_indexed(target_sprite.indices(), 0, idx..idx + 1)
-                    }
-                }
+            for (sprite_idx, instance) in command_queue {
+                let idx = instances.len() as u32;
+                instances.push(InstanceRaw::from(&instance));
+                let target_sprite = &renderer.atlas.sprites[sprite_idx as usize];
+                render_pass.draw_indexed(target_sprite.indices(), 0, idx..idx + 1)
             }
 
             renderer
@@ -485,8 +475,4 @@ impl FrameBuilder<'_> {
 
         Ok(())
     }
-}
-
-pub enum RenderCommand {
-    DrawSprite { sprite_idx: u32, instance: Instance },
 }
