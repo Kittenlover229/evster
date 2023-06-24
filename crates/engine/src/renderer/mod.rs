@@ -17,6 +17,7 @@ pub use vertex::*;
 pub struct Instance {
     pub size: f32,
     pub pos: Vec2,
+    pub layer: u16,
 
     // Clockwise rotation of the sprite in degrees
     pub angle: f32,
@@ -392,7 +393,17 @@ impl FrameBuilder<'_> {
         self
     }
 
-    pub fn end_frame(self) -> Result<(), wgpu::SurfaceError> {
+    pub fn optimize(mut self) -> Self {
+        self
+    }
+
+    fn sort_sprites(&mut self) {
+        self.command_queue.sort_by_key(|(_, instance)| instance.layer);
+    }
+
+    pub fn end_frame(mut self) -> Result<(), wgpu::SurfaceError> {
+        self.sort_sprites();
+
         let FrameBuilder {
             renderer,
             command_queue,

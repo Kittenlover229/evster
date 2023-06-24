@@ -47,9 +47,10 @@ pub fn main() {
                     5,
                     Instance {
                         size: 4.0,
-                        pos: vec2(-1.0, 1.0),
+                        pos: vec2(0.0, 0.0),
                         angle: 45.0,
                         tint: [255, 0, 255],
+                        layer: 1,
                     },
                 )
                 .draw_sprite(
@@ -59,6 +60,7 @@ pub fn main() {
                         pos: vec2(1.0, -1.0),
                         angle: -10.0,
                         tint: [0, 255, 255],
+                        layer: 2,
                     },
                 )
                 .end_frame();
