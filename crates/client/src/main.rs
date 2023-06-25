@@ -11,9 +11,9 @@ use engine::{Actor, ActorPrototype, Atlas, FrameBuilder, Grid, Instance, Rendere
 pub fn frame_from_world<'a>(
     renderer: &'a mut Renderer,
     world: &Grid,
-    atlas: &Atlas,
+    atlas: &'a Atlas,
 ) -> FrameBuilder<'a> {
-    let mut builder = renderer.begin_frame();
+    let mut builder = renderer.begin_frame(atlas);
 
     for Tile {
         position: pos,
@@ -23,7 +23,7 @@ pub fn frame_from_world<'a>(
     {
         if let Some(_actor) = occupier {
             let sprite_idx = atlas
-                .resolve_sprite_by_name(_actor.as_ref().borrow().prototype().sprite())
+                .resolve_content_name(_actor.as_ref().borrow().prototype().content_name())
                 .map_or(0, |x| x.0);
 
             builder = builder.draw_sprite(
@@ -61,6 +61,7 @@ pub fn main() -> anyhow::Result<()> {
     world.move_actor([0, 0], [2, 2]);
 
     let mut renderer = pollster::block_on(Renderer::new(window));
+
     let atlas = Atlas::default_from_device(
         &renderer.device,
         &renderer.queue,
@@ -97,7 +98,7 @@ pub fn main() -> anyhow::Result<()> {
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
             let frame = frame_from_world(&mut renderer, &world, &atlas);
 
-            match frame.end_frame(&atlas) {
+            match frame.end_frame() {
                 Ok(_) => {}
                 Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,

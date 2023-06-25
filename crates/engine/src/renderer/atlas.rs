@@ -15,8 +15,10 @@ pub struct Atlas {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
 
+    // List of all the sprites
     pub(crate) sprites: Vec<Sprite>,
-    pub(crate) named_sprites: HashMap<String, (u32, SmallVec<[u32; 4]>)>,
+    // Mapping of the content_name onto a default sprite and possibly variant sprites
+    pub(crate) content_name2sprite: HashMap<String, (u32, SmallVec<[u32; 2]>)>,
 }
 
 pub struct Sprite {
@@ -183,10 +185,10 @@ impl Atlas {
             label: Some("Atlas Bind Group"),
         });
 
-        let named_sprites = HashMap::from_iter([("monster.snek".to_string(), (5, smallvec![]))]);
+        let content_name2sprite = HashMap::from_iter([("monster.snek".to_string(), (5, smallvec![]))]);
 
         Self {
-            named_sprites,
+            content_name2sprite,
             index_buffer,
             vertex_buffer,
             sprites,
@@ -196,7 +198,7 @@ impl Atlas {
         }
     }
 
-    pub fn resolve_sprite_by_name(&self, name: &str) -> Option<&(u32, SmallVec<[u32; 4]>)> {
-        self.named_sprites.get(name)
+    pub fn resolve_content_name(&self, name: &str) -> Option<&(u32, SmallVec<[u32; 2]>)> {
+        self.content_name2sprite.get(name)
     }
 }

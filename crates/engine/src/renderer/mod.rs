@@ -4,7 +4,7 @@ use bytemuck::{Pod, Zeroable};
 use nalgebra_glm as glm;
 use nalgebra_glm::{vec3, Vec2};
 use wgpu::{util::DeviceExt, BindGroup, BufferUsages};
-use winit::{event::WindowEvent, window::Window};
+use winit::window::Window;
 
 mod atlas;
 mod camera;
@@ -307,6 +307,10 @@ impl Renderer {
         }
     }
 
+    pub fn set_camera(&mut self, camera: Camera) -> Camera {
+        self.camera.replace(camera)
+    }
+
     pub fn refresh_camera(&mut self) {
         self.queue.write_buffer(
             &self.camera_buffer,
@@ -331,9 +335,10 @@ impl Renderer {
         &self.window
     }
 
-    pub fn begin_frame<'a>(&'a mut self) -> FrameBuilder<'a> {
+    pub fn begin_frame<'a>(&'a mut self, atlas: &'a Atlas) -> FrameBuilder<'a> {
         FrameBuilder {
             renderer: self,
+            atlas,
             command_queue: vec![],
         }
     }
@@ -341,6 +346,7 @@ impl Renderer {
 
 pub struct FrameBuilder<'a> {
     renderer: &'a mut Renderer,
+    atlas: &'a Atlas,
     command_queue: Vec<(u32, Instance)>,
 }
 
@@ -360,12 +366,13 @@ impl FrameBuilder<'_> {
             .sort_by_key(|(_, instance)| instance.layer);
     }
 
-    pub fn end_frame(mut self, atlas: &Atlas) -> Result<(), wgpu::SurfaceError> {
+    pub fn end_frame(mut self) -> Result<(), wgpu::SurfaceError> {
         self.sort_sprites();
 
         let FrameBuilder {
             renderer,
             command_queue,
+            atlas
         } = self;
 
         let now = std::time::Instant::now();
@@ -403,12 +410,7 @@ impl FrameBuilder<'_> {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.1,
-                            b: 0.1,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: true,
                     },
                 })],
