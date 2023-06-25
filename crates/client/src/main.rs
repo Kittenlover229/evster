@@ -4,9 +4,9 @@ use winit::{
     window::WindowBuilder,
 };
 
-use engine::{Actor, FrameBuilder, Instance, Renderer, Tile, World};
+use engine::{Actor, FrameBuilder, Instance, Renderer, Tile, Grid};
 
-pub fn frame_from_world<'a>(renderer: &'a mut Renderer, world: &'a World) -> FrameBuilder<'a> {
+pub fn frame_from_world<'a>(renderer: &'a mut Renderer, world: &'a Grid) -> FrameBuilder<'a> {
     let mut builder = renderer.begin_frame();
 
     for Tile {
@@ -40,8 +40,9 @@ pub fn main() -> anyhow::Result<()> {
         .build(&event_loop)
         .unwrap();
 
-    let mut world = World::new(16, 16);
-    world.put_actor([0, 0].into(), Actor {})?;
+    let mut world = Grid::new(16, 16);
+    world.put_actor([0, 0], Actor {})?;
+    world.move_actor([0, 0], [2, 2]);
 
     let mut renderer = pollster::block_on(Renderer::new(window));
 

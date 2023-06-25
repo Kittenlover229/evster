@@ -1,3 +1,8 @@
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+};
+
 use thiserror::Error;
 
 mod actor;
@@ -8,7 +13,7 @@ pub use pos::*;
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
-pub struct World {
+pub struct Grid {
     pub stride: u16,
     pub grid: Vec<Tile>,
 }
@@ -19,7 +24,7 @@ pub enum GridError {
     OutOfBounds,
 }
 
-impl World {
+impl Grid {
     pub fn new(width: u16, height: u16) -> Self {
         let mut grid = vec![];
 
@@ -48,21 +53,45 @@ impl World {
             .get((position.x * self.stride as i32 + position.y) as usize)
     }
 
-    pub fn put_actor<'a>(
+    pub fn put_actor<'a, P: AsPosition>(
         &'a mut self,
-        position: Position,
+        position: P,
         actor: Actor,
-    ) -> Result<(Option<Actor>, &'a Actor), GridError> {
+    ) -> Result<(Option<Rc<RefCell<Actor>>>, Ref<'a, Actor>), GridError> {
+        let position = position.into();
+
         match self.get_tile_mut(position) {
             Some(tile) => {
-                let substituted = tile.occupier.replace(actor);
+                let substituted = tile.occupier.replace(Rc::new(RefCell::new(actor)));
                 match &tile.occupier {
-                    Some(x) => Ok((substituted, x)),
+                    Some(x) => Ok((substituted, x.as_ref().borrow())),
                     _ => unreachable!(),
                 }
             }
+
             None => Err(GridError::OutOfBounds),
         }
+    }
+
+    pub fn move_actor<'a, P: AsPosition>(
+        &'a mut self,
+        from: P,
+        to: P,
+    ) -> Option<Rc<RefCell<Actor>>> {
+        let (from, to) = (from.into(), to.into());
+
+        if from == to {
+            return None;
+        }
+
+        let occupier = self.remove_actor(from)?;
+        self.get_tile_mut(to)?.occupier.replace(occupier)
+    }
+
+    pub fn remove_actor<'a, P: AsPosition>(&'a mut self, at: P) -> Option<Rc<RefCell<Actor>>> {
+        self.get_tile_mut(at.into())
+            .map(|x| x.occupier.take())
+            .flatten()
     }
 }
 
@@ -70,5 +99,5 @@ impl World {
 #[non_exhaustive]
 pub struct Tile {
     pub position: Position,
-    pub occupier: Option<Actor>,
+    pub occupier: Option<Rc<RefCell<Actor>>>,
 }
