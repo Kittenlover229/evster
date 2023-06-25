@@ -6,7 +6,7 @@ use winit::{
     window::WindowBuilder,
 };
 
-use engine::{Actor, ActorPrototype, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile};
+use engine::{Actor, ActorTemplate, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile};
 
 pub fn frame_from_world<'a>(
     renderer: &'a mut Renderer,
@@ -23,7 +23,7 @@ pub fn frame_from_world<'a>(
     {
         if let Some(_actor) = occupier {
             let sprite_idx = atlas
-                .resolve_content_name(_actor.as_ref().borrow().prototype().content_name())
+                .resolve_resource(_actor.as_ref().borrow().template().resource_name())
                 .map_or(0, |x| x.0);
 
             builder = builder.draw_sprite(
@@ -53,7 +53,7 @@ pub fn main() -> anyhow::Result<()> {
         .build(&event_loop)
         .unwrap();
 
-    let snek = ActorPrototype::new("Snek", "monster.snek");
+    let snek = ActorTemplate::new("Snek", "monster.snek");
     let snek = Rc::new(snek);
 
     let mut world = Grid::new(16, 16);

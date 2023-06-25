@@ -17,8 +17,9 @@ pub struct Atlas {
 
     // List of all the sprites
     pub(crate) sprites: Vec<Sprite>,
-    // Mapping of the content_name onto a default sprite and possibly variant sprites
-    pub(crate) content_name2sprite: HashMap<String, (u32, SmallVec<[u32; 2]>)>,
+    // Mapping of the actor template's resource_name
+    // onto a default sprite (.0) and possibly variant sprites (.1)
+    pub(crate) resource_name_to_sprite: HashMap<String, (u32, SmallVec<[u32; 2]>)>,
 }
 
 pub struct Sprite {
@@ -185,10 +186,11 @@ impl Atlas {
             label: Some("Atlas Bind Group"),
         });
 
-        let content_name2sprite = HashMap::from_iter([("monster.snek".to_string(), (5, smallvec![]))]);
+        let resource_name_to_sprite =
+            HashMap::from_iter([("monster.snek".to_string(), (5, smallvec![]))]);
 
         Self {
-            content_name2sprite,
+            resource_name_to_sprite,
             index_buffer,
             vertex_buffer,
             sprites,
@@ -198,7 +200,7 @@ impl Atlas {
         }
     }
 
-    pub fn resolve_content_name(&self, name: &str) -> Option<&(u32, SmallVec<[u32; 2]>)> {
-        self.content_name2sprite.get(name)
+    pub fn resolve_resource(&self, name: &str) -> Option<&(u32, SmallVec<[u32; 2]>)> {
+        self.resource_name_to_sprite.get(name)
     }
 }
