@@ -8,7 +8,11 @@ use winit::{
 
 use engine::{Actor, ActorPrototype, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile};
 
-pub fn frame_from_world<'a>(renderer: &'a mut Renderer, world: &'a Grid) -> FrameBuilder<'a> {
+pub fn frame_from_world<'a>(
+    renderer: &'a mut Renderer,
+    world: &Grid,
+    atlas: &Atlas,
+) -> FrameBuilder<'a> {
     let mut builder = renderer.begin_frame();
 
     for Tile {
@@ -18,8 +22,12 @@ pub fn frame_from_world<'a>(renderer: &'a mut Renderer, world: &'a Grid) -> Fram
     } in &world.grid
     {
         if let Some(_actor) = occupier {
+            let sprite_idx = atlas
+                .resolve_sprite_by_name(_actor.as_ref().borrow().prototype().sprite())
+                .map_or(0, |x| x.0);
+
             builder = builder.draw_sprite(
-                0,
+                sprite_idx,
                 Instance {
                     size: 1.0,
                     pos: [pos.x as f32, pos.y as f32].into(),
@@ -45,7 +53,7 @@ pub fn main() -> anyhow::Result<()> {
         .build(&event_loop)
         .unwrap();
 
-    let snek = ActorPrototype::new("Snek");
+    let snek = ActorPrototype::new("Snek", "monster.snek");
     let snek = Rc::new(snek);
 
     let mut world = Grid::new(16, 16);
@@ -74,17 +82,20 @@ pub fn main() -> anyhow::Result<()> {
                     },
                 ..
             } => *control_flow = ControlFlow::Exit,
+
             WindowEvent::Resized(physical_size) => {
                 renderer.resize(*physical_size);
             }
+
             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                 renderer.resize(**new_inner_size);
             }
+
             _ => {}
         },
 
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
-            let frame = frame_from_world(&mut renderer, &world);
+            let frame = frame_from_world(&mut renderer, &world, &atlas);
 
             match frame.end_frame(&atlas) {
                 Ok(_) => {}

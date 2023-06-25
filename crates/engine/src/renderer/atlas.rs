@@ -1,3 +1,4 @@
+use smallvec::{smallvec, SmallVec};
 use std::ops::Range;
 
 use hashbrown::HashMap;
@@ -14,8 +15,8 @@ pub struct Atlas {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
 
-    pub sprites: Vec<Sprite>,
-    pub named_sprites: HashMap<String, (u32, Vec<u32>)>,
+    pub(crate) sprites: Vec<Sprite>,
+    pub(crate) named_sprites: HashMap<String, (u32, SmallVec<[u32; 4]>)>,
 }
 
 pub struct Sprite {
@@ -182,8 +183,10 @@ impl Atlas {
             label: Some("Atlas Bind Group"),
         });
 
+        let named_sprites = HashMap::from_iter([("monster.snek".to_string(), (5, smallvec![]))]);
+
         Self {
-            named_sprites: Default::default(),
+            named_sprites,
             index_buffer,
             vertex_buffer,
             sprites,
@@ -191,5 +194,9 @@ impl Atlas {
             textures: vec![(diffuse_texture, diffuse_texture_view)],
             bind_group,
         }
+    }
+
+    pub fn resolve_sprite_by_name(&self, name: &str) -> Option<&(u32, SmallVec<[u32; 4]>)> {
+        self.named_sprites.get(name)
     }
 }
