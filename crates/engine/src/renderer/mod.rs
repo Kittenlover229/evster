@@ -109,12 +109,11 @@ pub struct Renderer {
     pub camera_buffer: wgpu::Buffer,
 
     /* misc */
-    pub atlas: Atlas,
     pub instances: wgpu::Buffer,
 
     /* bind groups */
     pub camera_bind_group: BindGroup,
-    pub static_bind_group: BindGroup,
+    pub atlas_bind_layout: wgpu::BindGroupLayout,
 }
 
 impl Renderer {
@@ -237,35 +236,12 @@ impl Renderer {
 
         surface.configure(&device, &config);
 
-        let atlas = Atlas::default_from_device(&device, &queue);
-
-        let static_bind_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
-                        count: None,
-                    },
-                ],
-                label: Some("Static Bind Layout"),
-            });
+        let atlas_bind_layout = Atlas::create_binding_layout(&device);
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("shaders/main.wgsl"));
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout"),
-            bind_group_layouts: &[&static_bind_layout, &camera_bind_group_layout],
+            bind_group_layouts: &[&atlas_bind_layout, &camera_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -304,21 +280,6 @@ impl Renderer {
             multiview: None,
         });
 
-        let static_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &static_bind_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&atlas.textures[0].1),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&atlas.sampler),
-                },
-            ],
-            label: Some("Static Bind Group"),
-        });
-
         let instances = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
             size: std::mem::size_of::<InstanceRaw>() as u64 * 96,
@@ -329,8 +290,6 @@ impl Renderer {
         Renderer {
             instances,
             camera_bind_group,
-            static_bind_group,
-            atlas,
             surface,
             device,
             queue,
@@ -344,6 +303,7 @@ impl Renderer {
             delta_time: 0.,
             last_render_time: None,
             time_buffer,
+            atlas_bind_layout,
         }
     }
 
@@ -396,10 +356,11 @@ impl FrameBuilder<'_> {
     }
 
     fn sort_sprites(&mut self) {
-        self.command_queue.sort_by_key(|(_, instance)| instance.layer);
+        self.command_queue
+            .sort_by_key(|(_, instance)| instance.layer);
     }
 
-    pub fn end_frame(mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn end_frame(mut self, atlas: &Atlas) -> Result<(), wgpu::SurfaceError> {
         self.sort_sprites();
 
         let FrameBuilder {
@@ -455,22 +416,19 @@ impl FrameBuilder<'_> {
             });
 
             render_pass.set_pipeline(&renderer.pipeline);
-            render_pass.set_bind_group(0, &renderer.static_bind_group, &[]);
+            render_pass.set_bind_group(0, &atlas.bind_group, &[]);
             render_pass.set_bind_group(1, &renderer.camera_bind_group, &[]);
 
-            render_pass.set_vertex_buffer(0, renderer.atlas.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(0, atlas.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, renderer.instances.slice(..));
 
-            render_pass.set_index_buffer(
-                renderer.atlas.index_buffer.slice(..),
-                wgpu::IndexFormat::Uint16,
-            );
+            render_pass.set_index_buffer(atlas.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
             let mut instances = vec![];
             for (sprite_idx, instance) in command_queue {
                 let idx = instances.len() as u32;
                 instances.push(InstanceRaw::from(&instance));
-                let target_sprite = &renderer.atlas.sprites[sprite_idx as usize];
+                let target_sprite = &atlas.sprites[sprite_idx as usize];
                 render_pass.draw_indexed(target_sprite.indices(), 0, idx..idx + 1)
             }
 

@@ -9,6 +9,7 @@ use crate::Vertex;
 pub struct Atlas {
     pub textures: Vec<(wgpu::Texture, wgpu::TextureView)>,
     pub sampler: wgpu::Sampler,
+    pub bind_group: wgpu::BindGroup,
 
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -28,7 +29,35 @@ impl Sprite {
 }
 
 impl Atlas {
-    pub fn default_from_device(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn create_binding_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+            ],
+            label: Some("Atlas Bind Layout"),
+        })
+    }
+
+    pub fn default_from_device(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        binding_layout: &wgpu::BindGroupLayout,
+    ) -> Self {
         let diffuse_bytes = include_bytes!("assets/tileset.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         let diffuse_rgba = diffuse_image.to_rgba8();
@@ -138,6 +167,21 @@ impl Atlas {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: binding_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+            label: Some("Atlas Bind Group"),
+        });
+
         Self {
             named_sprites: Default::default(),
             index_buffer,
@@ -145,6 +189,7 @@ impl Atlas {
             sprites,
             sampler,
             textures: vec![(diffuse_texture, diffuse_texture_view)],
+            bind_group,
         }
     }
 }

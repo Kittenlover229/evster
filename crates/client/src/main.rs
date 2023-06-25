@@ -1,10 +1,12 @@
+use std::rc::Rc;
+
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
 
-use engine::{Actor, FrameBuilder, Instance, Renderer, Tile, Grid};
+use engine::{Actor, ActorPrototype, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile};
 
 pub fn frame_from_world<'a>(renderer: &'a mut Renderer, world: &'a Grid) -> FrameBuilder<'a> {
     let mut builder = renderer.begin_frame();
@@ -32,6 +34,9 @@ pub fn frame_from_world<'a>(renderer: &'a mut Renderer, world: &'a Grid) -> Fram
     builder
 }
 
+// Palette:
+// https://lospec.com/palette-list/2bit-demichrome
+
 pub fn main() -> anyhow::Result<()> {
     env_logger::init();
     let event_loop = EventLoop::new();
@@ -40,11 +45,19 @@ pub fn main() -> anyhow::Result<()> {
         .build(&event_loop)
         .unwrap();
 
+    let snek = ActorPrototype::new("Snek");
+    let snek = Rc::new(snek);
+
     let mut world = Grid::new(16, 16);
-    world.put_actor([0, 0], Actor {})?;
+    world.put_actor([0, 0], Actor::from(snek.clone()))?;
     world.move_actor([0, 0], [2, 2]);
 
     let mut renderer = pollster::block_on(Renderer::new(window));
+    let atlas = Atlas::default_from_device(
+        &renderer.device,
+        &renderer.queue,
+        &renderer.atlas_bind_layout,
+    );
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -73,7 +86,7 @@ pub fn main() -> anyhow::Result<()> {
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
             let frame = frame_from_world(&mut renderer, &world);
 
-            match frame.end_frame() {
+            match frame.end_frame(&atlas) {
                 Ok(_) => {}
                 Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,

@@ -1,5 +1,5 @@
 // Groups:
-// Group 0. Static Data: Textures, Samplers
+// Group 0. Atlas & Palette Data: Textures, Samplers
 // Group 1. Hot Data: Camera Info, Time
 
 struct InstanceInput {
