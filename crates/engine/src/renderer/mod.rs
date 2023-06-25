@@ -347,8 +347,6 @@ impl Renderer {
         }
     }
 
-    pub fn update(&mut self) {}
-
     pub fn refresh_camera(&mut self) {
         self.queue.write_buffer(
             &self.camera_buffer,

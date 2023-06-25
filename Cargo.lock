@@ -104,6 +104,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.71"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -283,6 +289,7 @@ checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
 name = "client"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "engine",
  "env_logger",
  "log",
@@ -461,6 +468,7 @@ dependencies = [
  "log",
  "nalgebra-glm",
  "smallvec",
+ "thiserror",
  "wgpu",
  "winit",
 ]

@@ -1,16 +1,47 @@
-use nalgebra_glm::vec2;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
 
-use engine::{Instance, Renderer};
+use engine::{Actor, FrameBuilder, Instance, Renderer, Tile, World};
 
-pub fn main() {
+pub fn frame_from_world<'a>(renderer: &'a mut Renderer, world: &'a World) -> FrameBuilder<'a> {
+    let mut builder = renderer.begin_frame();
+
+    for Tile {
+        position: pos,
+        occupier,
+        ..
+    } in &world.grid
+    {
+        if let Some(_actor) = occupier {
+            builder = builder.draw_sprite(
+                0,
+                Instance {
+                    size: 1.0,
+                    pos: [pos.x as f32, pos.y as f32].into(),
+                    layer: 1,
+                    angle: 0.0,
+                    tint: [255; 3],
+                },
+            );
+        }
+    }
+
+    builder
+}
+
+pub fn main() -> anyhow::Result<()> {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().with_title("Evster").build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_title("Evster")
+        .build(&event_loop)
+        .unwrap();
+
+    let mut world = World::new(16, 16);
+    world.put_actor([0, 0].into(), Actor {})?;
 
     let mut renderer = pollster::block_on(Renderer::new(window));
 
@@ -39,33 +70,9 @@ pub fn main() {
         },
 
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
-            renderer.update();
+            let frame = frame_from_world(&mut renderer, &world);
 
-            let rendered = renderer
-                .begin_frame()
-                .draw_sprite(
-                    5,
-                    Instance {
-                        size: 4.0,
-                        pos: vec2(0.0, 0.0),
-                        angle: 45.0,
-                        tint: [255, 0, 255],
-                        layer: 1,
-                    },
-                )
-                .draw_sprite(
-                    0,
-                    Instance {
-                        size: 2.0,
-                        pos: vec2(1.0, -1.0),
-                        angle: -10.0,
-                        tint: [0, 255, 255],
-                        layer: 2,
-                    },
-                )
-                .end_frame();
-
-            match rendered {
+            match frame.end_frame() {
                 Ok(_) => {}
                 Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
