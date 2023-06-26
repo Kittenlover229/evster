@@ -1,9 +1,26 @@
-use nalgebra_glm::{look_at_lh, ortho_lh, vec3, Vec3};
+use nalgebra_glm::{look_at_lh, ortho_lh, vec3, Mat4, Vec3};
 
 pub struct Camera {
     pub position: Vec3,
     pub ratio: f32,
     pub zoom: f32,
+}
+
+impl Camera {
+    pub fn projection_view_matrix(&self) -> Mat4 {
+        let forward = vec3(0., 0., 1.);
+        let view = look_at_lh(&self.position, &forward, &vec3(0., 1., 0.));
+        let proj = ortho_lh(
+            -self.ratio / self.zoom,
+            self.ratio / self.zoom,
+            -1. / self.zoom,
+            1. / self.zoom,
+            -1.0,
+            1.0,
+        );
+
+        proj * view
+    }
 }
 
 #[repr(C)]
@@ -15,20 +32,7 @@ pub struct CameraRaw {
 impl From<&'_ Camera> for CameraRaw {
     fn from(value: &'_ Camera) -> Self {
         CameraRaw {
-            view_proj: {
-                let forward = vec3(0., 0., 1.);
-                let view = look_at_lh(&value.position, &forward, &vec3(0., 1., 0.));
-                let proj = ortho_lh(
-                    -value.ratio / value.zoom,
-                    value.ratio / value.zoom,
-                    -1. / value.zoom,
-                    1. / value.zoom,
-                    -1.0,
-                    1.0,
-                );
-
-                (proj * view).into()
-            },
+            view_proj: value.projection_view_matrix().into(),
         }
     }
 }

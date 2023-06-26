@@ -9,12 +9,10 @@ mod actor;
 mod pos;
 mod world;
 mod action;
-mod rule;
 
 pub use actor::*;
 pub use pos::*;
 pub use world::*;
-pub use rule::*;
 pub use action::*;
 
 #[derive(Debug, Default)]
@@ -109,4 +107,10 @@ pub struct Tile {
     pub occupier: Option<Rc<RefCell<Actor>>>,
 
     pub is_solid: bool,
+}
+
+impl Tile {
+    pub fn is_occupied(&self) -> bool {
+        self.occupier.is_some()
+    }
 }

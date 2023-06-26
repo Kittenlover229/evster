@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use nalgebra_glm::Vec2;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -7,7 +8,7 @@ use winit::{
 };
 
 use engine::{
-    default_rules, Actor, ActorTemplate, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile, World,
+    Action, Actor, ActorTemplate, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -54,15 +55,12 @@ pub fn main() -> anyhow::Result<()> {
         .with_title("Evster")
         .build(&event_loop)
         .unwrap();
+    window.set_cursor_visible(false);
 
     let snek = ActorTemplate::new("Snek", "monster.snek");
     let snek = Rc::new(snek);
 
     let mut world = World::new(16, 16);
-
-    for rule in default_rules() {
-        world.add_rule(rule);
-    }
 
     world.grid.put_actor([0, 0], Actor::from(snek.clone()))?;
     world.grid.move_actor([0, 0], [2, 2]);
@@ -75,11 +73,29 @@ pub fn main() -> anyhow::Result<()> {
         &renderer.atlas_bind_layout,
     );
 
+    let mut thing = Vec2::new(0., 0.);
+
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             ref event,
             window_id,
         } if window_id == renderer.window().id() => match event {
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Space),
+                        ..
+                    },
+                ..
+            } => {
+                world.submit_action(Action::move_actor([2, 2], [0, 0]));
+            }
+
+            WindowEvent::CursorMoved { position, .. } => {
+                thing = renderer.window_space_to_world(position);
+            }
+
             WindowEvent::CloseRequested
             | WindowEvent::KeyboardInput {
                 input:
@@ -103,7 +119,17 @@ pub fn main() -> anyhow::Result<()> {
         },
 
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
-            let frame = frame_from_world(&mut renderer, &world.grid, &atlas);
+            let mut frame = frame_from_world(&mut renderer, &world.grid, &atlas);
+            frame = frame.draw_sprite(
+                7,
+                Instance {
+                    size: 1.0,
+                    pos: thing,
+                    layer: 3,
+                    angle: 0.0,
+                    tint: [255; 3],
+                },
+            );
 
             match frame.end_frame() {
                 Ok(_) => {}

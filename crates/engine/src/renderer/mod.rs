@@ -1,9 +1,11 @@
-use std::cell::{Cell, OnceCell};
+use std::cell::{Cell, OnceCell, RefCell};
 
 use bytemuck::{Pod, Zeroable};
+use glm::{vec2, Mat4, Vec3};
 use nalgebra_glm as glm;
 use nalgebra_glm::{vec3, Vec2};
 use wgpu::{util::DeviceExt, BindGroup, BufferUsages};
+use winit::dpi::PhysicalPosition;
 use winit::window::Window;
 
 mod atlas;
@@ -105,7 +107,7 @@ pub struct Renderer {
     pub time_buffer: wgpu::Buffer,
 
     /* camera */
-    pub camera: Cell<Camera>,
+    pub camera: RefCell<Camera>,
     pub camera_buffer: wgpu::Buffer,
 
     /* misc */
@@ -297,7 +299,7 @@ impl Renderer {
             size,
             window,
             pipeline,
-            camera: Cell::new(camera),
+            camera: RefCell::new(camera),
             camera_buffer,
             start_time: OnceCell::default(),
             delta_time: 0.,
@@ -333,6 +335,27 @@ impl Renderer {
 
     pub fn window(&self) -> &Window {
         &self.window
+    }
+
+    fn window_to_world_matrix(&self) -> Mat4 {
+        let camera = self.camera.borrow();
+
+        let proj_view = camera.projection_view_matrix();
+
+        glm::translation(&vec3(-camera.ratio / camera.zoom, 1. / camera.zoom, 0.))
+            * glm::scaling(&vec3(
+                2. / self.size.width as f32,
+                -2. / self.size.height as f32,
+                1.,
+            ))
+            * glm::inverse(&proj_view)
+    }
+
+    pub fn window_space_to_world(&self, pos: &PhysicalPosition<f64>) -> Vec2 {
+        let vec = vec2(pos.x as f32, pos.y as f32);
+        let vec = self.window_to_world_matrix() * glm::vec4(vec.x, vec.y, 1., 1.);
+        let vec = glm::vec4_to_vec2(&vec);
+        vec
     }
 
     pub fn begin_frame<'a>(&'a mut self, atlas: &'a Atlas) -> FrameBuilder<'a> {
@@ -372,7 +395,7 @@ impl FrameBuilder<'_> {
         let FrameBuilder {
             renderer,
             command_queue,
-            atlas
+            atlas,
         } = self;
 
         let now = std::time::Instant::now();
