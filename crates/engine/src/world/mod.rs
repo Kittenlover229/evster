@@ -7,9 +7,15 @@ use thiserror::Error;
 
 mod actor;
 mod pos;
+mod world;
+mod action;
+mod rule;
 
 pub use actor::*;
 pub use pos::*;
+pub use world::*;
+pub use rule::*;
+pub use action::*;
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -33,6 +39,7 @@ impl Grid {
                 grid.push(Tile {
                     position: [x, y].map(i32::from).into(),
                     occupier: None,
+                    is_solid: false,
                 })
             }
         }
@@ -100,4 +107,6 @@ impl Grid {
 pub struct Tile {
     pub position: Position,
     pub occupier: Option<Rc<RefCell<Actor>>>,
+
+    pub is_solid: bool,
 }

@@ -6,7 +6,9 @@ use winit::{
     window::WindowBuilder,
 };
 
-use engine::{Actor, ActorTemplate, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile};
+use engine::{
+    default_rules, Actor, ActorTemplate, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile, World,
+};
 
 pub fn frame_from_world<'a>(
     renderer: &'a mut Renderer,
@@ -56,9 +58,14 @@ pub fn main() -> anyhow::Result<()> {
     let snek = ActorTemplate::new("Snek", "monster.snek");
     let snek = Rc::new(snek);
 
-    let mut world = Grid::new(16, 16);
-    world.put_actor([0, 0], Actor::from(snek.clone()))?;
-    world.move_actor([0, 0], [2, 2]);
+    let mut world = World::new(16, 16);
+
+    for rule in default_rules() {
+        world.add_rule(rule);
+    }
+
+    world.grid.put_actor([0, 0], Actor::from(snek.clone()))?;
+    world.grid.move_actor([0, 0], [2, 2]);
 
     let mut renderer = pollster::block_on(Renderer::new(window));
 
@@ -96,7 +103,7 @@ pub fn main() -> anyhow::Result<()> {
         },
 
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
-            let frame = frame_from_world(&mut renderer, &world, &atlas);
+            let frame = frame_from_world(&mut renderer, &world.grid, &atlas);
 
             match frame.end_frame() {
                 Ok(_) => {}
