@@ -1,4 +1,5 @@
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
+use nalgebra_glm::{vec2, Vec2};
 use winit::event::{KeyboardInput, VirtualKeyCode};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -10,22 +11,52 @@ pub enum KeyState {
     Released,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AxialInput2D {
+    pub normalize: bool,
+    pub up: VirtualKeyCode,
+    pub down: VirtualKeyCode,
+    pub right: VirtualKeyCode,
+    pub left: VirtualKeyCode,
+}
+
 #[derive(Clone, Debug)]
 pub struct InputHandler {
     keys: HashMap<VirtualKeyCode, KeyState>,
-    filter: Vec<VirtualKeyCode>,
+    filter: HashSet<VirtualKeyCode>,
+    axial_inputs: Vec<AxialInput2D>,
 }
 
 impl InputHandler {
-    pub fn new_with_filter(filters: impl Iterator<Item = VirtualKeyCode>) -> Self {
-        let filter: Vec<VirtualKeyCode> = filters.collect();
+    pub fn new_with_filter(
+        filters: impl Iterator<Item = VirtualKeyCode>,
+        axial_inputs: impl Iterator<Item = AxialInput2D>,
+    ) -> Self {
+        let mut filter: Vec<VirtualKeyCode> = filters.collect();
+        let axial_inputs: Vec<AxialInput2D> = axial_inputs.collect();
+        for axial_input in &axial_inputs {
+            filter.extend(
+                [
+                    axial_input.up,
+                    axial_input.down,
+                    axial_input.right,
+                    axial_input.left,
+                ]
+                .iter(),
+            )
+        }
+
         let keys = {
             let mut hs = HashMap::new();
             hs.reserve(filter.len());
             hs
         };
 
-        Self { keys, filter }
+        Self {
+            keys,
+            filter: HashSet::from_iter(filter),
+            axial_inputs,
+        }
     }
 
     pub fn handle_input(&mut self, input: &KeyboardInput) {
@@ -70,6 +101,32 @@ impl InputHandler {
                 _ => *state,
             }
         }
+    }
+
+    pub fn get_axial(&self, idx: u32) -> Vec2 {
+        let mut vec = vec2(0., 0.);
+        let axial_input = self
+            .axial_inputs
+            .get(idx as usize)
+            .expect("No axial input at requested index");
+
+        vec += vec2(0., 1.) * self.is_active(axial_input.up) as u8 as f32;
+        vec += vec2(0., -1.) * self.is_active(axial_input.down) as u8 as f32;
+        vec += vec2(1., 0.) * self.is_active(axial_input.right) as u8 as f32;
+        vec += vec2(-1., 0.) * self.is_active(axial_input.left) as u8 as f32;
+
+        if axial_input.normalize {
+            vec = vec.normalize();
+        }
+
+        vec
+    }
+
+    pub fn is_active(&self, key: VirtualKeyCode) -> bool {
+        self.keys
+            .get(&key)
+            .map(|x| matches!(x, KeyState::Pressed | KeyState::Held))
+            .unwrap_or(false)
     }
 
     pub fn is_pressed(&self, key: VirtualKeyCode) -> bool {

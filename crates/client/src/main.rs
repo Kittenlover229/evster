@@ -9,8 +9,8 @@ use winit::{
 };
 
 use engine::{
-    Action, Actor, ActorTemplate, Atlas, FrameBuilder, Grid, InputHandler, Instance, Renderer,
-    Tile, World,
+    Action, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
+    Renderer, Tile, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -61,8 +61,19 @@ pub fn main() -> anyhow::Result<()> {
     let mut input_handler = InputHandler::new_with_filter(
         {
             use VirtualKeyCode::*;
-            vec![W, A, S, D, Space, Escape]
+            vec![Space, Escape]
         }
+        .into_iter(),
+        [{
+            use VirtualKeyCode::*;
+            AxialInput2D {
+                normalize: false,
+                up: W,
+                down: S,
+                right: D,
+                left: A,
+            }
+        }]
         .into_iter(),
     );
 
@@ -83,7 +94,7 @@ pub fn main() -> anyhow::Result<()> {
     );
 
     let mut cursor_pos = PhysicalPosition::default();
-    let mut inputs = I8Vec2::new(0, 0);
+    let mut inputs = Vec2::new(0., 0.);
     let camera_speed = 12.;
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -100,29 +111,7 @@ pub fn main() -> anyhow::Result<()> {
                     *control_flow = ControlFlow::Exit;
                 }
 
-                if input_handler.is_pressed(W) {
-                    inputs.y = 1
-                } else if input_handler.is_released(W) {
-                    inputs.y = 0
-                }
-
-                if input_handler.is_pressed(S) {
-                    inputs.y = -1
-                } else if input_handler.is_released(S) {
-                    inputs.y = 0
-                }
-
-                if input_handler.is_pressed(A) {
-                    inputs.x = -1
-                } else if input_handler.is_released(A) {
-                    inputs.x = 0
-                }
-
-                if input_handler.is_pressed(D) {
-                    inputs.x = 1
-                } else if input_handler.is_released(D) {
-                    inputs.x = 0
-                }
+                inputs = input_handler.get_axial(0);
             }
 
             WindowEvent::CursorMoved { position, .. } => {
