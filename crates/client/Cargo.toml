@@ -25,15 +25,3 @@ web-sys = { version = "0.3", features = [
     "Window",
     "Element",
 ]}
-
-[profile.dev]
-debug = 2
-debug-assertions = true
-overflow-checks = true
-
-[profile.release]
-debug = 1
-opt-level = 3
-overflow-checks = false
-strip = "debuginfo"
-lto = "fat"
