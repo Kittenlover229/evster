@@ -1,7 +1,7 @@
 use std::cell::{Cell, OnceCell, RefCell};
 
 use bytemuck::{Pod, Zeroable};
-use glm::{vec2, Mat4, Vec3};
+use glm::{vec2, vec4, Mat4, Vec3};
 use nalgebra_glm as glm;
 use nalgebra_glm::{vec3, Vec2};
 use wgpu::{util::DeviceExt, BindGroup, BufferUsages};
@@ -340,23 +340,21 @@ impl Renderer {
     fn window_to_world_matrix(&self) -> Mat4 {
         let camera = self.camera.borrow();
 
-        let proj_view = camera.projection_view_matrix();
+        let proj = camera.proj();
 
         glm::translation(&vec3(-camera.ratio / camera.zoom, 1. / camera.zoom, 0.))
             * glm::scaling(&vec3(
                 2. / self.size.width as f32,
                 -2. / self.size.height as f32,
-                1.,
+                0.,
             ))
-            * glm::inverse(&proj_view)
+            * glm::inverse(&proj)
     }
 
     pub fn window_space_to_world(&self, pos: &PhysicalPosition<f64>) -> Vec2 {
-        let vec = vec2(pos.x as f32, pos.y as f32);
-        let vec = self.window_to_world_matrix() * glm::vec4(vec.x, vec.y, 1., 1.);
-        let vec = glm::vec4_to_vec2(&vec);
-        let vec = vec + self.camera.borrow().position.xy();
-        vec
+        glm::vec4_to_vec2(
+            &(self.window_to_world_matrix() * vec4(pos.x as f32, pos.y as f32, 0., 1.)),
+        ) + self.camera.borrow().position.xy()
     }
 
     pub fn begin_frame<'a>(&'a mut self, atlas: &'a Atlas) -> FrameBuilder<'a> {
