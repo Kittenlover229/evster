@@ -118,7 +118,7 @@ pub fn main() -> anyhow::Result<()> {
 
     let mut world = World::new(16, 16);
 
-    world.grid.put_actor([0, 0], Actor::from(snek.clone()))?;
+    world.grid.put_actor([0, 0], Actor::from(snek))?;
     world.grid.move_actor([0, 0], [2, 2]);
 
     let mut renderer = pollster::block_on(Renderer::new(window));

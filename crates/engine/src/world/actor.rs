@@ -15,11 +15,11 @@ impl ActorTemplate {
         }
     }
 
-    pub fn resource_name<'a>(&'a self) -> &'a str {
+    pub fn resource_name(&self) -> &str {
         &self.resource_name
     }
 
-    pub fn name<'a>(&'a self) -> &'a str {
+    pub fn name(&self) -> &str {
         &self.display_name
     }
 }

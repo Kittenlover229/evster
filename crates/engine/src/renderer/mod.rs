@@ -1,7 +1,7 @@
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{OnceCell, RefCell};
 
 use bytemuck::{Pod, Zeroable};
-use glm::{vec2, vec4, Mat4, Vec3};
+use glm::{vec4, Mat4};
 use nalgebra_glm as glm;
 use nalgebra_glm::{vec3, Vec2};
 use wgpu::{util::DeviceExt, BindGroup, BufferUsages};
@@ -379,7 +379,7 @@ impl FrameBuilder<'_> {
         self
     }
 
-    pub fn optimize(mut self) -> Self {
+    pub fn optimize(self) -> Self {
         self
     }
 

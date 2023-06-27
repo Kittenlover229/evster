@@ -5,15 +5,15 @@ use std::{
 
 use thiserror::Error;
 
+mod action;
 mod actor;
 mod pos;
 mod world;
-mod action;
 
+pub use action::*;
 pub use actor::*;
 pub use pos::*;
 pub use world::*;
-pub use action::*;
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -48,21 +48,23 @@ impl Grid {
         }
     }
 
-    pub fn get_tile_mut(&mut self, position: Position) -> Option<&mut Tile> {
+    pub fn get_tile_mut(&mut self, position: impl AsPosition) -> Option<&mut Tile> {
+        let position = position.into();
         self.grid
             .get_mut((position.x * self.stride as i32 + position.y) as usize)
     }
 
-    pub fn get_tile(&self, position: Position) -> Option<&Tile> {
+    pub fn get_tile(&self, position: impl AsPosition) -> Option<&Tile> {
+        let position = position.into();
         self.grid
             .get((position.x * self.stride as i32 + position.y) as usize)
     }
 
-    pub fn put_actor<'a, P: AsPosition>(
-        &'a mut self,
-        position: P,
+    pub fn put_actor(
+        &mut self,
+        position: impl AsPosition,
         actor: Actor,
-    ) -> Result<(Option<Rc<RefCell<Actor>>>, Ref<'a, Actor>), GridError> {
+    ) -> Result<(Option<Rc<RefCell<Actor>>>, Ref<'_, Actor>), GridError> {
         let position = position.into();
 
         match self.get_tile_mut(position) {
@@ -78,10 +80,10 @@ impl Grid {
         }
     }
 
-    pub fn move_actor<'a, P: AsPosition>(
-        &'a mut self,
-        from: P,
-        to: P,
+    pub fn move_actor(
+        &mut self,
+        from: impl AsPosition,
+        to: impl AsPosition,
     ) -> Option<Rc<RefCell<Actor>>> {
         let (from, to) = (from.into(), to.into());
 
@@ -93,10 +95,9 @@ impl Grid {
         self.get_tile_mut(to)?.occupier.replace(occupier)
     }
 
-    pub fn remove_actor<'a, P: AsPosition>(&'a mut self, at: P) -> Option<Rc<RefCell<Actor>>> {
+    pub fn remove_actor(&mut self, at: impl AsPosition) -> Option<Rc<RefCell<Actor>>> {
         self.get_tile_mut(at.into())
-            .map(|x| x.occupier.take())
-            .flatten()
+            .and_then(|x| x.occupier.take())
     }
 }
 

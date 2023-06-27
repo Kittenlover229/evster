@@ -115,7 +115,7 @@ impl InputHandler {
         vec += vec2(1., 0.) * self.is_active(axial_input.right) as u8 as f32;
         vec += vec2(-1., 0.) * self.is_active(axial_input.left) as u8 as f32;
 
-        if axial_input.normalize {
+        if vec != Vec2::zeros() && axial_input.normalize {
             vec = vec.normalize();
         }
 
