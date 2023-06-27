@@ -9,7 +9,8 @@ use winit::{
 };
 
 use engine::{
-    Action, Actor, ActorTemplate, Atlas, FrameBuilder, Grid, Instance, Renderer, Tile, World,
+    Action, Actor, ActorTemplate, Atlas, FrameBuilder, Grid, InputHandler, Instance, Renderer,
+    Tile, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -57,6 +58,13 @@ pub fn main() -> anyhow::Result<()> {
         .build(&event_loop)
         .unwrap();
     window.set_cursor_visible(false);
+    let mut input_handler = InputHandler::new_with_filter(
+        {
+            use VirtualKeyCode::*;
+            vec![W, A, S, D, Space, Escape]
+        }
+        .into_iter(),
+    );
 
     let snek = ActorTemplate::new("Snek", "monster.snek");
     let snek = Rc::new(snek);
@@ -83,55 +91,39 @@ pub fn main() -> anyhow::Result<()> {
             ref event,
             window_id,
         } if window_id == renderer.window().id() => match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(key),
-                        ..
-                    },
-                ..
-            } => match key {
-                VirtualKeyCode::Space => world.submit_action(Action::move_actor([2, 2], [0, 0])),
-                VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
-                VirtualKeyCode::W => {
-                    inputs.y = 1;
-                }
-                VirtualKeyCode::S => {
-                    inputs.y = -1;
-                }
-                VirtualKeyCode::A => {
-                    inputs.x = -1;
-                }
-                VirtualKeyCode::D => {
-                    inputs.x = 1;
-                }
-                _ => {}
-            },
+            WindowEvent::KeyboardInput { input, .. } => {
+                input_handler.handle_input(input);
 
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state: ElementState::Released,
-                        virtual_keycode: Some(key),
-                        ..
-                    },
-                ..
-            } => match key {
-                VirtualKeyCode::W => {
-                    inputs.y = -1;
+                use VirtualKeyCode::*;
+
+                if input_handler.is_pressed(Escape) {
+                    *control_flow = ControlFlow::Exit;
                 }
-                VirtualKeyCode::S => {
-                    inputs.y = 1;
+
+                if input_handler.is_pressed(W) {
+                    inputs.y = 1
+                } else if input_handler.is_released(W) {
+                    inputs.y = 0
                 }
-                VirtualKeyCode::A => {
-                    inputs.x = 1;
+
+                if input_handler.is_pressed(S) {
+                    inputs.y = -1
+                } else if input_handler.is_released(S) {
+                    inputs.y = 0
                 }
-                VirtualKeyCode::D => {
-                    inputs.x = -1;
+
+                if input_handler.is_pressed(A) {
+                    inputs.x = -1
+                } else if input_handler.is_released(A) {
+                    inputs.x = 0
                 }
-                _ => {}
-            },
+
+                if input_handler.is_pressed(D) {
+                    inputs.x = 1
+                } else if input_handler.is_released(D) {
+                    inputs.x = 0
+                }
+            }
 
             WindowEvent::CursorMoved { position, .. } => {
                 cursor_pos = *position;
@@ -149,6 +141,8 @@ pub fn main() -> anyhow::Result<()> {
         },
 
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
+            input_handler.flush();
+
             renderer.camera.borrow_mut().position +=
                 renderer.delta_time * camera_speed * Vec3::new(inputs.x as _, inputs.y as _, 0.);
             renderer.refresh_camera();

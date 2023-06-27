@@ -5,7 +5,9 @@
 #![feature(try_trait_v2)]
 
 mod renderer;
+mod input;
 mod world;
 
 pub use renderer::*;
 pub use world::*;
+pub use input::*;
