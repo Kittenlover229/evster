@@ -26,18 +26,13 @@ jobs:
           profile: minimal
           toolchain: nightly
           components: rustfmt, clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-features
-      - run: cargo build --release --all-features
       - shell: bash
         run: | 
           cargo install trunk
       - shell: bash
         working-directory: ./crates/client
         run: | 
-          trunk build
+          trunk build --public-url ${{ steps.deployment.outputs.page_url }}
       - uses: actions/upload-pages-artifact@v1
         with:
           path: ./crates/client/dist
