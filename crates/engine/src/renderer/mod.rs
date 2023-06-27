@@ -101,8 +101,8 @@ pub struct Renderer {
     pub pipeline: wgpu::RenderPipeline,
 
     /* timers */
-    pub start_time: OnceCell<std::time::Instant>,
-    pub last_render_time: Option<std::time::Instant>,
+    pub start_time: OnceCell<instant::Instant>,
+    pub last_render_time: Option<instant::Instant>,
     pub delta_time: f32,
     pub time_buffer: wgpu::Buffer,
 
@@ -397,7 +397,7 @@ impl FrameBuilder<'_> {
             atlas,
         } = self;
 
-        let now = std::time::Instant::now();
+        let now = instant::Instant::now();
         let start_time = renderer.start_time.get_or_init(|| now);
         let time_since_start_millis =
             // There is probably a more idiomatic way to do this

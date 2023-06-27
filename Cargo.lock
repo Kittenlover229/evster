@@ -491,6 +491,7 @@ dependencies = [
  "bytemuck",
  "hashbrown 0.14.0",
  "image",
+ "instant",
  "log",
  "nalgebra-glm",
  "smallvec",
