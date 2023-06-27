@@ -12,8 +12,8 @@ use winit::{
 use wasm_bindgen::prelude::*;
 
 use engine::{
-    Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Renderer, Tile, World,
+    Action, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
+    Position, Renderer, Tile, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -58,7 +58,6 @@ pub fn run() {
     main().unwrap()
 }
 
-
 pub fn main() -> anyhow::Result<()> {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
@@ -78,7 +77,7 @@ pub fn main() -> anyhow::Result<()> {
     let mut input_handler = InputHandler::new_with_filter(
         {
             use VirtualKeyCode::*;
-            vec![Space, Escape]
+            vec![Space, Escape, Numpad8, Numpad4, Numpad6, Numpad2]
         }
         .into_iter(),
         [{
@@ -121,8 +120,7 @@ pub fn main() -> anyhow::Result<()> {
 
     let mut world = World::new(16, 16);
 
-    world.grid.put_actor([0, 0], Actor::from(player))?;
-
+    let (_, player) = world.grid.put_actor([0, 0], Actor::from(player))?;
     world.grid.put_actor([2, 2], Actor::from(snek))?;
 
     let mut renderer = pollster::block_on(Renderer::new(window));
@@ -134,7 +132,7 @@ pub fn main() -> anyhow::Result<()> {
     );
 
     let mut cursor_pos = PhysicalPosition::default();
-    let mut inputs = Vec2::new(0., 0.);
+    let mut camera_inputs = Vec2::new(0., 0.);
     let camera_speed = 12.;
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -151,7 +149,15 @@ pub fn main() -> anyhow::Result<()> {
                     *control_flow = ControlFlow::Exit;
                 }
 
-                inputs = input_handler.get_axial(0);
+                camera_inputs = input_handler.get_axial(0);
+
+                if input_handler.is_pressed(Numpad8) {
+                    let player_pos = player.borrow().position().unwrap();
+                    world.submit_action(Action::move_actor(
+                        player_pos,
+                        player_pos + Position::new(0, 1),
+                    ));
+                };
             }
 
             WindowEvent::CursorMoved { position, .. } => {
@@ -172,8 +178,9 @@ pub fn main() -> anyhow::Result<()> {
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
             input_handler.flush();
 
-            renderer.camera.borrow_mut().position +=
-                renderer.delta_time * camera_speed * Vec3::new(inputs.x as _, inputs.y as _, 0.);
+            renderer.camera.borrow_mut().position += renderer.delta_time
+                * camera_speed
+                * Vec3::new(camera_inputs.x as _, camera_inputs.y as _, 0.);
             renderer.refresh_camera();
             let cursor_pos = renderer.window_space_to_world(&cursor_pos);
 

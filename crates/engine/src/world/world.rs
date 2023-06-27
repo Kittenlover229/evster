@@ -22,15 +22,17 @@ impl World {
                     .map(Tile::is_occupied)
                     .unwrap_or(false)
                 {
+                    // Empty starting tile
                     todo!()
                 }
 
-                if !self
+                if self
                     .grid
                     .get_tile(to)
                     .map(Tile::is_occupied)
-                    .unwrap_or(false)
+                    .unwrap_or(true)
                 {
+                    // Non-empty target tile
                     todo!()
                 }
 

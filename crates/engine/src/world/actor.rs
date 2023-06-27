@@ -1,5 +1,7 @@
 use std::rc::Rc;
 
+use crate::Position;
+
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct ActorTemplate {
@@ -27,6 +29,7 @@ impl ActorTemplate {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct Actor {
+    pub(crate) cached_position: Option<Position>,
     template: Rc<ActorTemplate>,
 }
 
@@ -34,10 +37,17 @@ impl Actor {
     pub fn template(&self) -> &ActorTemplate {
         &self.template
     }
+
+    pub fn position(&self) -> Option<Position> {
+        self.cached_position
+    }
 }
 
 impl<'a> From<Rc<ActorTemplate>> for Actor {
     fn from(template: Rc<ActorTemplate>) -> Self {
-        Self { template }
+        Self {
+            template,
+            cached_position: None,
+        }
     }
 }
