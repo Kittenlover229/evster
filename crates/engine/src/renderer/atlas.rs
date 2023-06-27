@@ -117,11 +117,11 @@ impl Atlas {
         let mut global_indices: Vec<u16> = vec![];
         let mut global_vertices: Vec<Vertex> = vec![];
 
-        let x_step = 0.25;
-        let y_step = 0.25;
+        let x_step = 1. / 16.;
+        let y_step = 1. / 16.;
 
-        for y in 0..4 {
-            for x in 0..4 {
+        for y in 0..16 {
+            for x in 0..16 {
                 let yy = y as f32 * y_step;
                 let xx = x as f32 * x_step;
 
@@ -186,8 +186,10 @@ impl Atlas {
             label: Some("Atlas Bind Group"),
         });
 
-        let resource_name_to_sprite =
-            HashMap::from_iter([("monster.snek".to_string(), (5, smallvec![]))]);
+        let resource_name_to_sprite = HashMap::from_iter([
+            ("creature.snek".to_string(), (5, smallvec![])),
+            ("creature.player".to_string(), (16, smallvec![])),
+        ]);
 
         Self {
             resource_name_to_sprite,

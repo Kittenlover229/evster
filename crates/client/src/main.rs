@@ -113,13 +113,17 @@ pub fn main() -> anyhow::Result<()> {
             .expect("Couldn't append canvas to document body.");
     }
 
-    let snek = ActorTemplate::new("Snek", "monster.snek");
+    let snek = ActorTemplate::new("Snek", "creature.snek");
     let snek = Rc::new(snek);
+
+    let player = ActorTemplate::new("Player", "creature.player");
+    let player = Rc::new(player);
 
     let mut world = World::new(16, 16);
 
-    world.grid.put_actor([0, 0], Actor::from(snek))?;
-    world.grid.move_actor([0, 0], [2, 2]);
+    world.grid.put_actor([0, 0], Actor::from(player))?;
+
+    world.grid.put_actor([2, 2], Actor::from(snek))?;
 
     let mut renderer = pollster::block_on(Renderer::new(window));
 
