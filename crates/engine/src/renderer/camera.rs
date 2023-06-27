@@ -8,7 +8,7 @@ pub struct Camera {
 
 impl Camera {
     pub fn projection_view_matrix(&self) -> Mat4 {
-        let forward = vec3(0., 0., 1.);
+        let forward = self.position + vec3(0., 0., 1.);
         let view = look_at_lh(&self.position, &forward, &vec3(0., 1., 0.));
         let proj = ortho_lh(
             -self.ratio / self.zoom,

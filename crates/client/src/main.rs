@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
-use nalgebra_glm::Vec2;
+use nalgebra_glm::{I8Vec2, Vec2, Vec3};
 use winit::{
+    dpi::PhysicalPosition,
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
@@ -73,7 +74,9 @@ pub fn main() -> anyhow::Result<()> {
         &renderer.atlas_bind_layout,
     );
 
-    let mut thing = Vec2::new(0., 0.);
+    let mut cursor_pos = PhysicalPosition::default();
+    let mut inputs = I8Vec2::new(0, 0);
+    let camera_speed = 12.;
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -84,28 +87,55 @@ pub fn main() -> anyhow::Result<()> {
                 input:
                     KeyboardInput {
                         state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::Space),
+                        virtual_keycode: Some(key),
                         ..
                     },
                 ..
-            } => {
-                world.submit_action(Action::move_actor([2, 2], [0, 0]));
-            }
+            } => match key {
+                VirtualKeyCode::Space => world.submit_action(Action::move_actor([2, 2], [0, 0])),
+                VirtualKeyCode::Escape => *control_flow = ControlFlow::Exit,
+                VirtualKeyCode::W => {
+                    inputs.y = 1;
+                }
+                VirtualKeyCode::S => {
+                    inputs.y = -1;
+                }
+                VirtualKeyCode::A => {
+                    inputs.x = -1;
+                }
+                VirtualKeyCode::D => {
+                    inputs.x = 1;
+                }
+                _ => {}
+            },
 
-            WindowEvent::CursorMoved { position, .. } => {
-                thing = renderer.window_space_to_world(position);
-            }
-
-            WindowEvent::CloseRequested
-            | WindowEvent::KeyboardInput {
+            WindowEvent::KeyboardInput {
                 input:
                     KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                        state: ElementState::Released,
+                        virtual_keycode: Some(key),
                         ..
                     },
                 ..
-            } => *control_flow = ControlFlow::Exit,
+            } => match key {
+                VirtualKeyCode::W => {
+                    inputs.y = -1;
+                }
+                VirtualKeyCode::S => {
+                    inputs.y = 1;
+                }
+                VirtualKeyCode::A => {
+                    inputs.x = 1;
+                }
+                VirtualKeyCode::D => {
+                    inputs.x = -1;
+                }
+                _ => {}
+            },
+
+            WindowEvent::CursorMoved { position, .. } => {
+                cursor_pos = *position;
+            }
 
             WindowEvent::Resized(physical_size) => {
                 renderer.resize(*physical_size);
@@ -119,12 +149,17 @@ pub fn main() -> anyhow::Result<()> {
         },
 
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
+            renderer.camera.borrow_mut().position +=
+                renderer.delta_time * camera_speed * Vec3::new(inputs.x as _, inputs.y as _, 0.);
+            renderer.refresh_camera();
+            let cursor_pos = renderer.window_space_to_world(&cursor_pos);
+
             let mut frame = frame_from_world(&mut renderer, &world.grid, &atlas);
             frame = frame.draw_sprite(
                 7,
                 Instance {
                     size: 1.0,
-                    pos: thing,
+                    pos: cursor_pos,
                     layer: 3,
                     angle: 0.0,
                     tint: [255; 3],

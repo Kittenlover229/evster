@@ -355,6 +355,7 @@ impl Renderer {
         let vec = vec2(pos.x as f32, pos.y as f32);
         let vec = self.window_to_world_matrix() * glm::vec4(vec.x, vec.y, 1., 1.);
         let vec = glm::vec4_to_vec2(&vec);
+        let vec = vec + self.camera.borrow().position.xy();
         vec
     }
 
@@ -406,6 +407,10 @@ impl FrameBuilder<'_> {
         let delta_time = now
             .duration_since(renderer.last_render_time.unwrap_or(now))
             .as_secs_f32();
+
+        renderer.last_render_time.replace(now);
+        renderer.delta_time = delta_time;
+
         renderer.queue.write_buffer(
             &renderer.time_buffer,
             0,
