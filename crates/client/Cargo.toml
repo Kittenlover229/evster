@@ -12,6 +12,19 @@ nalgebra-glm = "0.18"
 pollster = "0.3.0"
 wgpu = "0.16.1"
 winit = "0.28.6"
+cfg-if = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.6"
+console_log = "1.0"
+wgpu = { version = "0.16", features = ["webgl"]}
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4.30"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Window",
+    "Element",
+]}
 
 [profile.dev]
 debug = 2

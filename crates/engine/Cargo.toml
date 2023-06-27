@@ -3,9 +3,12 @@ name = "engine"
 version = "0.0.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 log = "0.4.19"
-wgpu = "0.16.1"
+wgpu = { version = "0.16.1", features = ["webgl"] }
 winit = "0.28.6"
 bytemuck = { version = "1.13.1", features = [ "derive" ] }
 image = { version = "0.24", features = ["png"] }
