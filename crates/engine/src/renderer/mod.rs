@@ -16,6 +16,7 @@ pub use atlas::*;
 pub use camera::*;
 pub use vertex::*;
 
+#[derive(Debug)]
 pub struct Instance {
     pub size: f32,
     pub pos: Vec2,
@@ -375,6 +376,17 @@ pub struct FrameBuilder<'a> {
 
 impl FrameBuilder<'_> {
     pub fn draw_sprite(mut self, sprite_idx: u32, instance: Instance) -> Self {
+        let (cull_min, cull_max) = self.renderer.camera.borrow().camera_culling_aabb();
+
+        let centroid = instance.pos;
+        if !(centroid.x > cull_min.x
+            && centroid.x < cull_max.x
+            && centroid.y > cull_min.y
+            && centroid.y < cull_max.y)
+        {
+            return self;
+        }
+
         self.command_queue.push((sprite_idx, instance));
 
         self
@@ -386,7 +398,12 @@ impl FrameBuilder<'_> {
 
     fn sort_sprites(&mut self) {
         self.command_queue
-            .sort_by_key(|(_, instance)| instance.layer);
+            .sort_unstable_by(|(a_sprite, a_instance), (b_sprite, b_instance)| {
+                match a_instance.layer.cmp(&b_instance.layer) {
+                    std::cmp::Ordering::Equal => a_sprite.cmp(b_sprite),
+                    x => x,
+                }
+            });
     }
 
     pub fn end_frame(mut self) -> Result<(), wgpu::SurfaceError> {
@@ -452,27 +469,40 @@ impl FrameBuilder<'_> {
             render_pass.set_vertex_buffer(1, renderer.instances.slice(..));
 
             render_pass.set_index_buffer(atlas.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
+            
             let camera = renderer.camera.borrow();
             let mut instances = vec![];
+            
+            let mut last_sprite_idx = 0;
+            let mut same_sprite_len = 0;
+            let mut sprite_seq_begin_idx = 0;
             for (sprite_idx, instance) in command_queue
                 .into_iter()
                 .take(camera.objects_on_screen_cap as usize)
             {
-                let centroid = instance.pos;
-                let (cull_min, cull_max) = camera.camera_culling_aabb();
-                if !(centroid.x > cull_min.x
-                    && centroid.x < cull_max.x
-                    && centroid.y > cull_min.y
-                    && centroid.y < cull_max.y)
-                {
-                    continue;
+                if sprite_idx == last_sprite_idx {
+                    same_sprite_len += 1;
+                } else {
+                    let target_sprite = &atlas.sprites[last_sprite_idx as usize];
+                    render_pass.draw_indexed(
+                        target_sprite.indices(),
+                        0,
+                        sprite_seq_begin_idx..sprite_seq_begin_idx + same_sprite_len,
+                    );
+                    last_sprite_idx = sprite_idx;
+                    same_sprite_len = 1;
+                    sprite_seq_begin_idx = instances.len() as u32;
                 }
 
-                let idx = instances.len() as u32;
                 instances.push(InstanceRaw::from(&instance));
-                let target_sprite = &atlas.sprites[sprite_idx as usize];
-                render_pass.draw_indexed(target_sprite.indices(), 0, idx..idx + 1)
+            }
+
+            if instances.len() != 0 {
+                render_pass.draw_indexed(
+                    atlas.sprites[last_sprite_idx as usize].indices(),
+                    0,
+                    sprite_seq_begin_idx..instances.len() as u32,
+                );
             }
 
             renderer

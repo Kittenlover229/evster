@@ -142,7 +142,7 @@ pub fn run() -> anyhow::Result<()> {
     let wall = TileDescription::new("Wall", "tile.wall", TileFlags::SOLID);
     let mut sculptor = bare_dungeon_sculptor(floor, wall);
 
-    let mut world = World::new(64, 64);
+    let mut world = World::new(15, 15);
     sculptor.sculpt_all(&mut world.grid);
 
     let player = world
