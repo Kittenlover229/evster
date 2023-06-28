@@ -1,15 +1,15 @@
-use crate::{AsPosition, Position};
+use crate::{ActorReference, AsPosition, Position};
 
 #[derive(Debug, Clone, Hash, PartialEq)]
 #[non_exhaustive]
 pub enum Action {
-    MoveActor { from: Position, to: Position },
+    MoveActor { actor_ref: ActorReference, to: Position },
 }
 
 impl Action {
-    pub fn move_actor(from: impl AsPosition, to: impl AsPosition) -> Self {
+    pub fn move_actor(actor: ActorReference, to: impl AsPosition) -> Self {
         Action::MoveActor {
-            from: from.into(),
+            actor_ref: actor,
             to: to.into(),
         }
     }

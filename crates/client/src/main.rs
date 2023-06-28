@@ -12,7 +12,7 @@ use winit::{
 use wasm_bindgen::prelude::*;
 
 use engine::{
-    Action, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
+    Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
     Position, Renderer, Tile, World,
 };
 
@@ -29,9 +29,9 @@ pub fn frame_from_world<'a>(
         ..
     } in &world.grid
     {
-        if let Some(_actor) = occupier {
+        if let Some(actor) = occupier {
             let sprite_idx = atlas
-                .resolve_resource(_actor.as_ref().template().resource_name())
+                .resolve_resource(actor.get_data().actor().template().resource_name())
                 .map_or(0, |x| x.0);
 
             builder = builder.draw_sprite(
@@ -119,6 +119,15 @@ pub fn main() -> anyhow::Result<()> {
     let player = Rc::new(player);
 
     let mut world = World::new(16, 16);
+    let player = world
+        .grid
+        .put_actor([0, 0], Actor::from_template(player))
+        .unwrap();
+    world
+        .grid
+        .put_actor([2, 2], Actor::from_template(snek))
+        .unwrap();
+
     let mut renderer = pollster::block_on(Renderer::new(window));
 
     let atlas = Atlas::default_from_device(
@@ -143,6 +152,14 @@ pub fn main() -> anyhow::Result<()> {
 
                 if input_handler.is_pressed(Escape) {
                     *control_flow = ControlFlow::Exit;
+                }
+
+                if input_handler.is_pressed(Numpad8) {
+                    world.submit_action(engine::Action::MoveActor {
+                        actor_ref: player.clone(),
+                        to: player.get_data().try_valid_data().unwrap().cached_position
+                            + Position::new(0, 1),
+                    });
                 }
 
                 camera_inputs = input_handler.get_axial(0);

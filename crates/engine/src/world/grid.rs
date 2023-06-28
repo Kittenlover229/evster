@@ -1,12 +1,6 @@
-use std::{
-    borrow::{Borrow, BorrowMut},
-    cell::RefCell,
-    rc::Rc,
-};
-
 use thiserror::Error;
 
-use crate::{Actor, ActorHandle, AsPosition, Position};
+use crate::{Actor, ActorHandle, ActorReference, AsPosition, Position};
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -53,18 +47,46 @@ impl Grid {
             .get((position.x * self.stride as i32 + position.y) as usize)
     }
 
-    pub fn put_actor(
+    pub fn move_actor(
         &mut self,
-        position: impl AsPosition,
-        mut actor: Actor,
-    ) -> Option<Option<ActorHandle>> {
+        from: impl AsPosition,
+        to: impl AsPosition,
+    ) -> Option<(Option<ActorReference>, ActorReference)> {
+        let mut actor = self
+            .get_tile_mut(from)
+            .map(|x| x.occupier.take())
+            .flatten()?;
+        let to = to.into();
+
+        let destination = self.get_tile_mut(to).map(|x| &mut x.occupier)?;
+        let mover = actor.as_weak();
+
+        assert!(actor.get_data().is_valid());
+        actor
+            .get_data_mut()
+            .valid_actor_data
+            .as_mut()
+            .unwrap()
+            .cached_position = to;
+
+        let moved = destination
+            .replace(actor)
+            .as_ref()
+            .map(ActorHandle::as_weak);
+
+        Some((moved, mover))
+    }
+
+    pub fn put_actor(&mut self, position: impl AsPosition, actor: Actor) -> Option<ActorReference> {
         let position = position.into();
 
         match self.get_tile_mut(position) {
-            Some(tile) => Some(
-                tile.occupier
-                    .replace(ActorHandle::from_actor(actor, position)),
-            ),
+            Some(tile) => {
+                let handle = ActorHandle::from_actor(actor, position);
+                let weak = handle.as_weak();
+                tile.occupier.replace(handle);
+                Some(weak)
+            }
 
             None => None,
         }
