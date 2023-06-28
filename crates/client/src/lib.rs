@@ -44,7 +44,7 @@ pub fn frame_from_world<'a>(
                     size: 1.0,
                     pos: [pos.x as f32, pos.y as f32].into(),
                     layer: 2,
-                    angle: 0.0,
+                    angle: 45.0,
                     tint: [255; 3],
                 },
             );
@@ -60,7 +60,7 @@ pub fn frame_from_world<'a>(
                 size: 1.0,
                 pos: [pos.x as f32, pos.y as f32].into(),
                 layer: 1,
-                angle: 0.0,
+                angle: 45.0,
                 tint: if occupier.is_some() { [50; 3] } else { [100; 3] },
             },
         );

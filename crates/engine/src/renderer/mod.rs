@@ -73,7 +73,7 @@ impl From<&'_ Instance> for InstanceRaw {
         InstanceRaw {
             tint: value.tint.map(|x| x as f32 / 255.),
             pos: value.pos.into(),
-            rotation: value.angle,
+            rotation: value.angle * glm::pi::<f32>() / 180.,
             scale: value.size,
         }
     }

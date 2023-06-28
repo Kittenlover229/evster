@@ -42,8 +42,15 @@ fn vs_main(
     var out: VertexOutput;
 
     out.tex_coords = model.tex_coords;
+
+    let rot = mat2x2<f32>(
+        vec2<f32>(cos(instance.angle), -sin(instance.angle)),
+        vec2<f32>(sin(instance.angle), cos(instance.angle)),
+    );
+
     out.clip_position = camera.view
-                        * vec4<f32>(model.position + vec3<f32>(instance.pos, 0.0), 1.0);
+                        * vec4<f32>(instance.pos + rot * (model.position.xy * instance.scale), model.position.z, 1.0) ;
+
     out.tint = instance.tint;
 
     return out;
