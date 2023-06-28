@@ -24,6 +24,10 @@
             cursor: none;
         }
     </style>
+    <script>
+        const init = await import('./client.js');
+        init().then(() => console.log("WASM Loaded"));
+    </script>
 </head>
 
 <body>

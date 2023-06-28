@@ -2,6 +2,10 @@
 name = "client"
 version = "0.0.0"
 edition = "2021"
+crate-type = ["cdylib", "rlib"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 engine = { path = '../engine' }

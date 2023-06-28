@@ -31,12 +31,12 @@ jobs:
           components: rustfmt, clippy
       - shell: bash
         run: | 
-          cargo install trunk
+          cargo install wasm-pack
       - uses: Swatinem/rust-cache@v2
       - shell: bash
         run: | 
-          trunk build
-        working-directory: ./crates/client
+          wasm-pack build crates/client --release --out-dir dist --target web
+          cp ./crates/client/index.html ./crates/client/dist/index.html
       - uses: actions/upload-pages-artifact@v1
         with:
           path: ./crates/client/dist
