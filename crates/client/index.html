@@ -24,8 +24,9 @@
             cursor: none;
         }
     </style>
-    <script>
-        import('./client.js').then(() => console.log("WASM Loaded"));
+    <script type="module" defer>
+        import init from "./client.js";
+        init().then(x => { console.log(x); x.run_js() });
     </script>
 </head>
 
