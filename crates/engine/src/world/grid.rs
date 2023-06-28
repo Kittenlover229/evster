@@ -6,7 +6,7 @@ use std::{
 
 use thiserror::Error;
 
-use crate::{Actor, AsPosition, Position};
+use crate::{Actor, ActorHandle, AsPosition, Position};
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -57,47 +57,17 @@ impl Grid {
         &mut self,
         position: impl AsPosition,
         mut actor: Actor,
-    ) -> Result<(Option<Rc<RefCell<Actor>>>, Rc<RefCell<Actor>>), GridError> {
+    ) -> Option<Option<ActorHandle>> {
         let position = position.into();
 
         match self.get_tile_mut(position) {
-            Some(tile) => {
-                actor.cached_position = Some(tile.position);
-                let substituted = tile.occupier.replace(Rc::new(RefCell::new(actor)));
-                match &tile.occupier {
-                    Some(substitutor) => Ok((substituted, substitutor.to_owned())),
-                    _ => unreachable!(),
-                }
-            }
+            Some(tile) => Some(
+                tile.occupier
+                    .replace(ActorHandle::from_actor(actor, position)),
+            ),
 
-            None => Err(GridError::OutOfBounds),
+            None => None,
         }
-    }
-
-    pub fn move_actor(
-        &mut self,
-        from: impl AsPosition,
-        to: impl AsPosition,
-    ) -> Option<Rc<RefCell<Actor>>> {
-        let (from, to) = (from.into(), to.into());
-
-        if from == to {
-            return None;
-        }
-
-        let occupier = self.remove_actor(from)?;
-        occupier.as_ref().borrow_mut().cached_position = Some(to);
-        self.get_tile_mut(to)?.occupier.replace(occupier)
-    }
-
-    pub fn remove_actor(&mut self, at: impl AsPosition) -> Option<Rc<RefCell<Actor>>> {
-        self.get_tile_mut(at.into()).and_then(|tile| {
-            let actor = tile.occupier.take();
-            if let Some(actor) = &actor {
-                actor.as_ref().borrow_mut().cached_position = None;
-            }
-            actor
-        })
     }
 }
 
@@ -105,7 +75,7 @@ impl Grid {
 #[non_exhaustive]
 pub struct Tile {
     pub position: Position,
-    pub occupier: Option<Rc<RefCell<Actor>>>,
+    pub occupier: Option<ActorHandle>,
 
     pub is_solid: bool,
 }

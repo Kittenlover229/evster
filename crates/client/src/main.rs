@@ -31,7 +31,7 @@ pub fn frame_from_world<'a>(
     {
         if let Some(_actor) = occupier {
             let sprite_idx = atlas
-                .resolve_resource(_actor.as_ref().borrow().template().resource_name())
+                .resolve_resource(_actor.as_ref().template().resource_name())
                 .map_or(0, |x| x.0);
 
             builder = builder.draw_sprite(
@@ -119,10 +119,6 @@ pub fn main() -> anyhow::Result<()> {
     let player = Rc::new(player);
 
     let mut world = World::new(16, 16);
-
-    let (_, player) = world.grid.put_actor([0, 0], Actor::from(player))?;
-    world.grid.put_actor([2, 2], Actor::from(snek))?;
-
     let mut renderer = pollster::block_on(Renderer::new(window));
 
     let atlas = Atlas::default_from_device(
@@ -150,14 +146,6 @@ pub fn main() -> anyhow::Result<()> {
                 }
 
                 camera_inputs = input_handler.get_axial(0);
-
-                if input_handler.is_pressed(Numpad8) {
-                    let player_pos = player.borrow().position().unwrap();
-                    world.submit_action(Action::move_actor(
-                        player_pos,
-                        player_pos + Position::new(0, 1),
-                    ));
-                };
             }
 
             WindowEvent::CursorMoved { position, .. } => {
