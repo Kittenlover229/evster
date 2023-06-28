@@ -30,7 +30,9 @@ pub struct Instance {
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
-    pub model: [[f32; 4]; 4],
+    pub pos: [f32; 2],
+    pub rotation: f32,
+    pub scale: f32,
     pub tint: [f32; 3],
 }
 
@@ -44,26 +46,21 @@ impl InstanceRaw {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 3,
-                    format: wgpu::VertexFormat::Float32x4,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 5,
+                    format: wgpu::VertexFormat::Float32,
                 },
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    shader_location: 4,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                    shader_location: 5,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
                     shader_location: 6,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
-                    shader_location: 7,
                     format: wgpu::VertexFormat::Float32x3,
                 },
             ],
@@ -73,13 +70,11 @@ impl InstanceRaw {
 
 impl From<&'_ Instance> for InstanceRaw {
     fn from(value: &'_ Instance) -> Self {
-        let model = glm::translation(&vec3(value.pos.x, value.pos.y, 0.0))
-            * glm::rotation(-value.angle * glm::pi::<f32>() / 180., &vec3(0., 0., 1.))
-            * glm::scaling(&vec3(value.size, value.size, value.size));
-
         InstanceRaw {
             tint: value.tint.map(|x| x as f32 / 255.),
-            model: model.into(),
+            pos: value.pos.into(),
+            rotation: value.angle,
+            scale: value.size,
         }
     }
 }
@@ -376,7 +371,7 @@ pub struct FrameBuilder<'a> {
 
 impl FrameBuilder<'_> {
     pub fn draw_sprite(mut self, sprite_idx: u32, instance: Instance) -> Self {
-        let (cull_min, cull_max) = self.renderer.camera.borrow().camera_culling_aabb();
+        /*let (cull_min, cull_max) = self.renderer.camera.borrow().camera_culling_aabb();
 
         let centroid = instance.pos;
         if !(centroid.x > cull_min.x
@@ -385,7 +380,7 @@ impl FrameBuilder<'_> {
             && centroid.y < cull_max.y)
         {
             return self;
-        }
+        }*/
 
         self.command_queue.push((sprite_idx, instance));
 
@@ -469,10 +464,10 @@ impl FrameBuilder<'_> {
             render_pass.set_vertex_buffer(1, renderer.instances.slice(..));
 
             render_pass.set_index_buffer(atlas.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            
+
             let camera = renderer.camera.borrow();
             let mut instances = vec![];
-            
+
             let mut last_sprite_idx = 0;
             let mut same_sprite_len = 0;
             let mut sprite_seq_begin_idx = 0;
