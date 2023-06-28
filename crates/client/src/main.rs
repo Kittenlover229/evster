@@ -175,6 +175,7 @@ pub fn main() -> anyhow::Result<()> {
 
                 use VirtualKeyCode::*;
 
+                #[cfg(not(target_arch = "wasm32"))]
                 if input_handler.is_pressed(Escape) {
                     *control_flow = ControlFlow::Exit;
                 }
