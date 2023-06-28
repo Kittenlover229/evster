@@ -158,6 +158,7 @@ impl Renderer {
             position: vec3(0., 0., -1.),
             ratio: 16f32 / 9f32,
             zoom: 1. / 10.,
+            objects_on_screen_cap: 16 * 16 * 16,
         };
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -284,7 +285,7 @@ impl Renderer {
 
         let instances = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
-            size: std::mem::size_of::<InstanceRaw>() as u64 * 16 * 16 * 4,
+            size: std::mem::size_of::<InstanceRaw>() as u64 * camera.objects_on_screen_cap,
             usage: BufferUsages::COPY_DST | BufferUsages::VERTEX,
             mapped_at_creation: false,
         });
@@ -452,8 +453,22 @@ impl FrameBuilder<'_> {
 
             render_pass.set_index_buffer(atlas.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
+            let camera = renderer.camera.borrow();
             let mut instances = vec![];
-            for (sprite_idx, instance) in command_queue {
+            for (sprite_idx, instance) in command_queue
+                .into_iter()
+                .take(camera.objects_on_screen_cap as usize)
+            {
+                let centroid = instance.pos;
+                let (cull_min, cull_max) = camera.camera_culling_aabb();
+                if !(centroid.x > cull_min.x
+                    && centroid.x < cull_max.x
+                    && centroid.y > cull_min.y
+                    && centroid.y < cull_max.y)
+                {
+                    continue;
+                }
+
                 let idx = instances.len() as u32;
                 instances.push(InstanceRaw::from(&instance));
                 let target_sprite = &atlas.sprites[sprite_idx as usize];

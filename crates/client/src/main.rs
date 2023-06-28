@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use content::{box_sculptor, fill_sculptor, Sculptor};
+use content::{bare_dungeon_sculptor, fill_sculptor, Sculptor};
 use nalgebra_glm::{Vec2, Vec3};
 use winit::{
     dpi::PhysicalPosition,
@@ -139,10 +139,10 @@ pub fn main() -> anyhow::Result<()> {
 
     let floor = TileDescription::new("Basic Floor", "tile.floor", TileFlags::PASSTHROUGH);
     let wall = TileDescription::new("Wall", "tile.wall", TileFlags::SOLID);
-    let mut fill_sculptor = box_sculptor(floor, wall);
+    let mut sculptor = bare_dungeon_sculptor(floor, wall);
 
-    let mut world = World::new(16, 8);
-    fill_sculptor.sculpt_all(&mut world.grid);
+    let mut world = World::new(64, 64);
+    sculptor.sculpt_all(&mut world.grid);
 
     let player = world
         .grid

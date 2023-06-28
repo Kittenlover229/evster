@@ -34,7 +34,7 @@ pub fn fill_sculptor(fill_with: TileDescriptor) -> impl Sculptor + Sized {
     }
 }
 
-pub fn box_sculptor(floor: TileDescriptor, wall: TileDescriptor) -> impl Sculptor + Sized {
+pub fn bare_dungeon_sculptor(floor: TileDescriptor, wall: TileDescriptor) -> impl Sculptor + Sized {
     let floor = floor.clone();
     let wall = wall.clone();
 
