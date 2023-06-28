@@ -36,10 +36,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cargo
-        working-directory: ./crates/client
       - shell: bash
         run: | 
           trunk build
+        working-directory: ./crates/client
       - uses: actions/upload-pages-artifact@v1
         with:
           path: ./crates/client/dist
