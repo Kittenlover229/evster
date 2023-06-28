@@ -1,4 +1,4 @@
-use crate::{Action, ActorReference, Grid, Position};
+use crate::{Action, ActorReference, Grid, Position, TileFlags};
 
 pub struct World {
     pub grid: Grid,
@@ -24,6 +24,15 @@ impl World {
             Some(pos) => pos,
             None => return false,
         };
+
+        if self
+            .grid
+            .tile_at(destination)
+            .map(|x| x.flags() != TileFlags::PASSTHROUGH)
+            .unwrap_or(false)
+        {
+            return false;
+        }
 
         self.grid.move_actor(from, destination);
         true

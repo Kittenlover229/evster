@@ -97,18 +97,32 @@ impl Grid {
     }
 }
 
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+    pub struct TileFlags: u16 {
+        const PASSTHROUGH   = 0b000000;
+        const SOLID         = 0b000001;
+    }
+}
+
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct TileDescription {
-    display_name: String,
-    resource_name: String,
+    pub display_name: String,
+    pub resource_name: String,
+    pub flags: TileFlags,
 }
 
 impl TileDescription {
-    pub fn new(display_name: impl ToString, resource_name: impl ToString) -> TileDescriptor {
+    pub fn new(
+        display_name: impl ToString,
+        resource_name: impl ToString,
+        flags: TileFlags,
+    ) -> TileDescriptor {
         Rc::new(TileDescription {
             display_name: display_name.to_string(),
             resource_name: resource_name.to_string(),
+            flags,
         })
     }
 }
@@ -126,5 +140,9 @@ pub struct Tile {
 impl Tile {
     pub fn is_occupied(&self) -> bool {
         self.occupier.is_some()
+    }
+
+    pub fn flags(&self) -> TileFlags {
+        self.descriptor.flags
     }
 }

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use content::{fill_sculptor, Sculptor};
+use content::{box_sculptor, fill_sculptor, Sculptor};
 use nalgebra_glm::{Vec2, Vec3};
 use winit::{
     dpi::PhysicalPosition,
@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 
 use engine::{
     Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Position, Renderer, Tile, TileDescription, World,
+    Position, Renderer, Tile, TileDescription, TileFlags, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -24,23 +24,46 @@ pub fn frame_from_world<'a>(
 ) -> FrameBuilder<'a> {
     let mut builder = renderer.begin_frame(atlas);
 
-    for (pos, Tile { occupier, .. }) in &world.grid {
+    for (
+        pos,
+        Tile {
+            occupier,
+            descriptor,
+            ..
+        },
+    ) in &world.grid
+    {
         if let Some(actor) = occupier {
-            let sprite_idx = atlas
+            let actor_sprite_idx = atlas
                 .resolve_resource(actor.get_data().actor().template().resource_name())
                 .map_or(0, |x| x.0);
 
             builder = builder.draw_sprite(
-                sprite_idx,
+                actor_sprite_idx,
                 Instance {
                     size: 1.0,
                     pos: [pos.x as f32, pos.y as f32].into(),
-                    layer: 1,
+                    layer: 2,
                     angle: 0.0,
                     tint: [255; 3],
                 },
             );
         }
+
+        let tile_sprite_idx = atlas
+            .resolve_resource(&descriptor.as_ref().resource_name)
+            .map_or(0, |x| x.0);
+
+        builder = builder.draw_sprite(
+            tile_sprite_idx,
+            Instance {
+                size: 1.0,
+                pos: [pos.x as f32, pos.y as f32].into(),
+                layer: 1,
+                angle: 0.0,
+                tint: if occupier.is_some() { [50; 3] } else { [100; 3] },
+            },
+        );
     }
 
     builder
@@ -114,15 +137,16 @@ pub fn main() -> anyhow::Result<()> {
     let player = ActorTemplate::new("Player", "creature.player");
     let player = Rc::new(player);
 
-    let floor = TileDescription::new("Basic Floor", "floor.basic");
-    let mut fill_sculptor = fill_sculptor(floor);
+    let floor = TileDescription::new("Basic Floor", "tile.floor", TileFlags::PASSTHROUGH);
+    let wall = TileDescription::new("Wall", "tile.wall", TileFlags::SOLID);
+    let mut fill_sculptor = box_sculptor(floor, wall);
 
-    let mut world = World::new(16, 16);
+    let mut world = World::new(16, 8);
     fill_sculptor.sculpt_all(&mut world.grid);
 
     let player = world
         .grid
-        .put_actor([0, 0], Actor::from_template(player))
+        .put_actor([1, 1], Actor::from_template(player))
         .unwrap();
     world
         .grid
@@ -155,11 +179,26 @@ pub fn main() -> anyhow::Result<()> {
                     *control_flow = ControlFlow::Exit;
                 }
 
+                let mut player_desired_move = Position::zeros();
+
                 if input_handler.is_pressed(Numpad8) {
+                    player_desired_move += Position::new(0, 1);
+                }
+                if input_handler.is_pressed(Numpad2) {
+                    player_desired_move -= Position::new(0, 1);
+                }
+                if input_handler.is_pressed(Numpad6) {
+                    player_desired_move += Position::new(1, 0);
+                }
+                if input_handler.is_pressed(Numpad4) {
+                    player_desired_move -= Position::new(1, 0);
+                }
+
+                if player_desired_move != Position::zeros() {
                     world.submit_action(engine::Action::MoveActor {
                         actor_ref: player.clone(),
                         to: player.get_data().try_valid_data().unwrap().cached_position
-                            + Position::new(0, 1),
+                            + player_desired_move,
                     });
                 }
 
@@ -190,8 +229,8 @@ pub fn main() -> anyhow::Result<()> {
             renderer.refresh_camera();
             let cursor_pos = renderer.window_space_to_world(&cursor_pos);
 
-            let mut frame = frame_from_world(&mut renderer, &world.grid, &atlas);
-            frame = frame.draw_sprite(
+            let frame = frame_from_world(&mut renderer, &world.grid, &atlas);
+            /*frame = frame.draw_sprite(
                 7,
                 Instance {
                     size: 1.0,
@@ -200,7 +239,7 @@ pub fn main() -> anyhow::Result<()> {
                     angle: 0.0,
                     tint: [255; 3],
                 },
-            );
+            );*/
 
             match frame.end_frame() {
                 Ok(_) => {}

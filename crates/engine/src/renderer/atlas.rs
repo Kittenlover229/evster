@@ -187,6 +187,8 @@ impl Atlas {
         });
 
         let resource_name_to_sprite = HashMap::from_iter([
+            ("tile.floor".to_string(), (0, smallvec![])),
+            ("tile.wall".to_string(), (1, smallvec![])),
             ("creature.snek".to_string(), (5, smallvec![])),
             ("creature.player".to_string(), (16, smallvec![])),
         ]);

@@ -284,7 +284,7 @@ impl Renderer {
 
         let instances = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Instance Buffer"),
-            size: std::mem::size_of::<InstanceRaw>() as u64 * 96,
+            size: std::mem::size_of::<InstanceRaw>() as u64 * 16 * 16 * 4,
             usage: BufferUsages::COPY_DST | BufferUsages::VERTEX,
             mapped_at_creation: false,
         });
