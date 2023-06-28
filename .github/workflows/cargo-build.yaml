@@ -33,9 +33,14 @@ jobs:
         run: | 
           cargo install trunk
       - shell: bash
+      - name: Cache Cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo
         working-directory: ./crates/client
         run: | 
-          trunk build --public-url ${{ steps.deployment.outputs.page_url }}
+          trunk build
       - uses: actions/upload-pages-artifact@v1
         with:
           path: ./crates/client/dist
