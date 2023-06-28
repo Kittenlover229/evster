@@ -1,50 +1,55 @@
-use thiserror::Error;
+use std::rc::Rc;
+
+use hashbrown::HashMap;
 
 use crate::{Actor, ActorHandle, ActorReference, AsPosition, Position};
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
 pub struct Grid {
-    pub stride: u16,
-    pub grid: Vec<Tile>,
-}
-
-#[derive(Error, Debug)]
-pub enum GridError {
-    #[error("Indexing the world out of bounds!")]
-    OutOfBounds,
+    pub size: Position,
+    pub grid: hashbrown::HashMap<Position, Tile>,
 }
 
 impl Grid {
     pub fn new(width: u16, height: u16) -> Self {
-        let mut grid = vec![];
-
-        for x in 0..width {
-            for y in 0..height {
-                grid.push(Tile {
-                    position: [x, y].map(i32::from).into(),
-                    occupier: None,
-                    is_solid: false,
-                })
-            }
-        }
+        let mut grid = HashMap::default();
+        grid.reserve((width * height).into());
 
         Self {
+            size: [width as i32, height as i32].into(),
             grid,
-            stride: height,
         }
     }
 
-    pub fn get_tile_mut(&mut self, position: impl AsPosition) -> Option<&mut Tile> {
-        let position = position.into();
-        self.grid
-            .get_mut((position.x * self.stride as i32 + position.y) as usize)
+    pub fn tile_at_mut(&mut self, position: impl AsPosition) -> Option<&mut Tile> {
+        self.grid.get_mut(&position.into())
     }
 
-    pub fn get_tile(&self, position: impl AsPosition) -> Option<&Tile> {
-        let position = position.into();
-        self.grid
-            .get((position.x * self.stride as i32 + position.y) as usize)
+    pub fn tile_at(&self, position: impl AsPosition) -> Option<&Tile> {
+        self.grid.get(&position.into())
+    }
+
+    pub fn make_tile_at(
+        &mut self,
+        position: impl AsPosition,
+        descriptor: TileDescriptor,
+    ) -> (Option<Tile>, &Tile) {
+        let pos = position.into();
+        let displaced = self.grid.insert(
+            pos,
+            Tile {
+                position: pos,
+                descriptor,
+                occupier: None,
+            },
+        );
+        (
+            displaced,
+            self.grid
+                .get(&pos)
+                .expect("Couldn't get Tile that was just put"),
+        )
     }
 
     pub fn move_actor(
@@ -53,20 +58,19 @@ impl Grid {
         to: impl AsPosition,
     ) -> Option<(Option<ActorReference>, ActorReference)> {
         let mut actor = self
-            .get_tile_mut(from)
+            .tile_at_mut(from)
             .map(|x| x.occupier.take())
             .flatten()?;
         let to = to.into();
 
-        let destination = self.get_tile_mut(to).map(|x| &mut x.occupier)?;
+        let destination = self.tile_at_mut(to).map(|x| &mut x.occupier)?;
         let mover = actor.as_weak();
 
         assert!(actor.get_data().is_valid());
         actor
             .get_data_mut()
             .valid_actor_data
-            .as_mut()
-            .unwrap()
+            .as_mut()?
             .cached_position = to;
 
         let moved = destination
@@ -80,7 +84,7 @@ impl Grid {
     pub fn put_actor(&mut self, position: impl AsPosition, actor: Actor) -> Option<ActorReference> {
         let position = position.into();
 
-        match self.get_tile_mut(position) {
+        match self.tile_at_mut(position) {
             Some(tile) => {
                 let handle = ActorHandle::from_actor(actor, position);
                 let weak = handle.as_weak();
@@ -93,13 +97,30 @@ impl Grid {
     }
 }
 
-#[derive(Debug, Default)]
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct TileDescription {
+    display_name: String,
+    resource_name: String,
+}
+
+impl TileDescription {
+    pub fn new(display_name: impl ToString, resource_name: impl ToString) -> TileDescriptor {
+        Rc::new(TileDescription {
+            display_name: display_name.to_string(),
+            resource_name: resource_name.to_string(),
+        })
+    }
+}
+
+pub type TileDescriptor = Rc<TileDescription>;
+
+#[derive(Debug)]
 #[non_exhaustive]
 pub struct Tile {
     pub position: Position,
+    pub descriptor: TileDescriptor,
     pub occupier: Option<ActorHandle>,
-
-    pub is_solid: bool,
 }
 
 impl Tile {

@@ -4,8 +4,9 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.71"
 engine = { path = '../engine' }
+content = { path = '../content' }
+anyhow = "1.0.71"
 pretty_env_logger = "0.5"
 log = "0.4"
 nalgebra-glm = "0.18"

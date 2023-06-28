@@ -1,5 +1,4 @@
 use hashbrown::{HashMap, HashSet};
-use log::warn;
 use nalgebra_glm::{vec2, Vec2};
 use winit::event::{KeyboardInput, VirtualKeyCode};
 

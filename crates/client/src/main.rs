@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use content::{fill_sculptor, Sculptor};
 use nalgebra_glm::{Vec2, Vec3};
 use winit::{
     dpi::PhysicalPosition,
@@ -13,7 +14,7 @@ use wasm_bindgen::prelude::*;
 
 use engine::{
     Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Position, Renderer, Tile, World,
+    Position, Renderer, Tile, TileDescription, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -23,12 +24,7 @@ pub fn frame_from_world<'a>(
 ) -> FrameBuilder<'a> {
     let mut builder = renderer.begin_frame(atlas);
 
-    for Tile {
-        position: pos,
-        occupier,
-        ..
-    } in &world.grid
-    {
+    for (pos, Tile { occupier, .. }) in &world.grid {
         if let Some(actor) = occupier {
             let sprite_idx = atlas
                 .resolve_resource(actor.get_data().actor().template().resource_name())
@@ -118,7 +114,12 @@ pub fn main() -> anyhow::Result<()> {
     let player = ActorTemplate::new("Player", "creature.player");
     let player = Rc::new(player);
 
+    let floor = TileDescription::new("Basic Floor", "floor.basic");
+    let mut fill_sculptor = fill_sculptor(floor);
+
     let mut world = World::new(16, 16);
+    fill_sculptor.sculpt_all(&mut world.grid);
+
     let player = world
         .grid
         .put_actor([0, 0], Actor::from_template(player))
