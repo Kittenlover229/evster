@@ -37,6 +37,7 @@ jobs:
         with:
           path: ~/.cargo
         working-directory: ./crates/client
+      - shell: bash
         run: | 
           trunk build
       - uses: actions/upload-pages-artifact@v1
