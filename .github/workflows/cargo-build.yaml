@@ -32,12 +32,10 @@ jobs:
       - shell: bash
         run: | 
           cargo install trunk
-      - shell: bash
       - name: Cache Cargo
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cargo
+          path: ~/.cargo
         working-directory: ./crates/client
         run: | 
           trunk build
