@@ -25,8 +25,7 @@
         }
     </style>
     <script>
-        const init = await import('./client.js');
-        init().then(() => console.log("WASM Loaded"));
+        import('./client.js').then(() => console.log("WASM Loaded"));
     </script>
 </head>
 
