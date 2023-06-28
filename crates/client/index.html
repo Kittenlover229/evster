@@ -26,7 +26,13 @@
     </style>
     <script type="module" defer>
         import init from "./client.js";
-        init().then(x => { console.log(x); x.run_js() });
+        init()
+            .then(x => { console.log(x); x.run_js() })
+            .catch((error) => {
+                if (!error.message.startsWith("Using exceptions for control flow,")) {
+                    throw error;
+                }
+            });
     </script>
 </head>
 
