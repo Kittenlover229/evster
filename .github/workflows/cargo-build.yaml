@@ -32,10 +32,7 @@ jobs:
       - shell: bash
         run: | 
           cargo install trunk
-      - name: Cache Cargo
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo
+      - uses: Swatinem/rust-cache@v2
       - shell: bash
         run: | 
           trunk build
