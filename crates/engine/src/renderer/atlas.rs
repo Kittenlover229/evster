@@ -1,3 +1,4 @@
+use nalgebra_glm::Vec2;
 use smallvec::{smallvec, SmallVec};
 use std::ops::Range;
 
@@ -57,6 +58,48 @@ impl Atlas {
         })
     }
 
+    pub fn sampling_options() -> wgpu::SamplerDescriptor<'static> {
+        wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        }
+    }
+
+    pub fn mesh_from_sprite(texture_topleft: Vec2, size: Vec2) -> (Vec<Vertex>, Vec<u16>) {
+        let x = texture_topleft.x;
+        let y = texture_topleft.y;
+        let x_step = size.x;
+        let y_step = size.y;
+
+        let verts = [
+            Vertex {
+                position: [-0.5, -0.5, 0.0],
+                tex_coords: [x, y + y_step],
+            },
+            Vertex {
+                position: [0.5, -0.5, 0.0],
+                tex_coords: [x + x_step, y + y_step],
+            },
+            Vertex {
+                position: [-0.5, 0.5, 0.0],
+                tex_coords: [x, y],
+            },
+            Vertex {
+                position: [0.5, 0.5, 0.0],
+                tex_coords: [x + x_step, y],
+            },
+        ];
+
+        let inds = [0, 1, 2, 1, 3, 2];
+
+        (verts.to_vec(), inds.to_vec())
+    }
+
     pub fn default_from_device(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -103,15 +146,7 @@ impl Atlas {
         let diffuse_texture_view =
             diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
+        let sampler = device.create_sampler(&Self::sampling_options());
 
         let mut sprites = vec![];
         let mut global_indices: Vec<u16> = vec![];
@@ -125,26 +160,9 @@ impl Atlas {
                 let yy = y as f32 * y_step;
                 let xx = x as f32 * x_step;
 
-                let verts = [
-                    Vertex {
-                        position: [-0.5, -0.5, 0.0],
-                        tex_coords: [xx, yy + y_step],
-                    },
-                    Vertex {
-                        position: [0.5, -0.5, 0.0],
-                        tex_coords: [xx + x_step, yy + y_step],
-                    },
-                    Vertex {
-                        position: [-0.5, 0.5, 0.0],
-                        tex_coords: [xx, yy],
-                    },
-                    Vertex {
-                        position: [0.5, 0.5, 0.0],
-                        tex_coords: [xx + x_step, yy],
-                    },
-                ]; // quad
-
-                let inds = [0, 1, 2, 1, 3, 2].map(|x| (x + global_vertices.len()) as u16); // quad
+                let (verts, inds) =
+                    Self::mesh_from_sprite(Vec2::new(xx, yy), Vec2::new(x_step, y_step));
+                let inds = inds.into_iter().map(|x| x + global_vertices.len() as u16);
 
                 let sprite = Sprite {
                     sprite_index_range: (
