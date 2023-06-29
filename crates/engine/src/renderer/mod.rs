@@ -99,6 +99,7 @@ pub struct Renderer {
     /* timers */
     pub start_time: OnceCell<instant::Instant>,
     pub last_render_time: Option<instant::Instant>,
+    pub time_since_start_seconds: f64,
     pub delta_time: f32,
     pub time_buffer: wgpu::Buffer,
 
@@ -287,6 +288,7 @@ impl Renderer {
         });
 
         Renderer {
+            time_since_start_seconds: 0.,
             instances,
             camera_bind_group,
             surface,
@@ -418,6 +420,7 @@ impl FrameBuilder<'_> {
         let delta_time = now
             .duration_since(renderer.last_render_time.unwrap_or(now))
             .as_secs_f32();
+        renderer.time_since_start_seconds = now.duration_since(start_time.to_owned()).as_secs_f64();
 
         renderer.last_render_time.replace(now);
         renderer.delta_time = delta_time;

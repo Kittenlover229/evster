@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 
 use engine::{
     Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Position, Renderer, Tile, Material, TileFlags, World,
+    Material, Position, Renderer, Tile, TileFlags, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -219,18 +219,19 @@ pub fn run() -> anyhow::Result<()> {
                 * Vec3::new(camera_inputs.x as _, camera_inputs.y as _, 0.);
             renderer.refresh_camera();
             let cursor_pos = renderer.window_space_to_world(&cursor_pos);
+            let cursor_scale = renderer.time_since_start_seconds.sin() as f32 * 0.1 + 1.0;
 
-            let frame = frame_from_world(&mut renderer, &world.grid, &atlas);
-            /*frame = frame.draw_sprite(
+            let mut frame = frame_from_world(&mut renderer, &world.grid, &atlas);
+            frame.draw_sprite(
                 7,
                 Instance {
-                    size: 1.0,
+                    size: cursor_scale,
                     pos: cursor_pos,
                     layer: 3,
                     angle: 0.0,
                     tint: [255; 3],
                 },
-            );*/
+            );
 
             match frame.end_frame() {
                 Ok(_) => {}
