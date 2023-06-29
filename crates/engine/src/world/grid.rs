@@ -79,17 +79,40 @@ impl Grid {
 
         self.make_tile_box(from, to, fill);
 
-        for i in 0..height {
+        for i in -1..height + 1 {
             let y = i + from.y;
-            self.make_tile_at([from.x, y], border.clone());
-            self.make_tile_at([from.x + width - 1, y], border.clone());
+            self.make_tile_at([from.x - 1, y], border.clone());
+            self.make_tile_at([from.x + width, y], border.clone());
         }
 
-        for j in 1..(width - 1) {
+        for j in 0..width {
             let x = j + from.x;
-            self.make_tile_at([x, from.y], border.clone());
-            self.make_tile_at([x, from.y + height - 1], border.clone());
+            self.make_tile_at([x, from.y - 1], border.clone());
+            self.make_tile_at([x, from.y + height], border.clone());
         }
+    }
+
+    pub fn tile_neumann_neighbours(&self, at: impl AsPosition) -> [(Position, Option<&Tile>); 4] {
+        let at = at.into();
+        [[0, 1], [1, 0], [0, -1], [-1, 0]]
+            .map(Position::from)
+            .map(|pos| (at + pos, self.grid.get(&(at + pos))))
+    }
+
+    pub fn tile_moore_neighbours(&self, at: impl AsPosition) -> [(Position, Option<&Tile>); 8] {
+        let at = at.into();
+        [
+            [0, 1],
+            [1, 1],
+            [1, 0],
+            [1, -1],
+            [0, -1],
+            [-1, -1],
+            [-1, 0],
+            [-1, 1],
+        ]
+        .map(Position::from)
+        .map(|pos| (at + pos, self.grid.get(&(at + pos))))
     }
 
     pub fn make_tile_box(
@@ -167,7 +190,7 @@ bitflags::bitflags! {
 }
 
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct TileDescription {
     pub display_name: String,
     pub resource_name: String,
@@ -190,7 +213,7 @@ impl TileDescription {
 
 pub type TileDescriptor = Rc<TileDescription>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Tile {
     pub position: Position,

@@ -145,8 +145,8 @@ pub fn run() -> anyhow::Result<()> {
     let floor = TileDescription::new("Basic Floor", "tile.floor", TileFlags::PASSTHROUGH);
     let wall = TileDescription::new("Wall", "tile.wall", TileFlags::SOLID);
     let mut sculptor = DungeonSculptor::new(
-        NonZeroU16::new(20).unwrap(),
-        ([4, 4], [20, 20]),
+        NonZeroU16::new(50).unwrap(),
+        ([4, 4], [10, 10]),
         floor.clone(),
         wall.clone(),
     );

@@ -85,6 +85,7 @@ impl ActorData {
 }
 
 // An owning handle to an existing actor
+#[derive(PartialEq, Eq)]
 pub struct ActorHandle {
     heap: NonNull<ActorData>,
 }

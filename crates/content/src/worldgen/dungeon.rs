@@ -1,5 +1,5 @@
 use engine::{AsPosition, Grid, Position, TileDescriptor};
-use nalgebra_glm::{vec2, distance2};
+use nalgebra_glm::{distance2, vec2, Vec2};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::num::NonZeroU16;
 
@@ -14,15 +14,15 @@ impl Room {
     pub fn centroid(&self) -> Position {
         self.min / 2 + self.max / 2
     }
-}
 
-fn do_intersect(a: &Room, b: &Room) -> bool {
-    let (xmax1, xmax2) = (a.max.x, b.max.x);
-    let (ymax1, ymax2) = (a.max.y, b.max.y);
-    let (xmin1, xmin2) = (a.min.x, b.min.x);
-    let (ymin1, ymin2) = (a.min.y, b.min.y);
+    pub fn overlaps(&self, rhs: &Room) -> bool {
+        let (xmax1, xmax2) = (self.max.x, rhs.max.x);
+        let (ymax1, ymax2) = (self.max.y, rhs.max.y);
+        let (xmin1, xmin2) = (self.min.x, rhs.min.x);
+        let (ymin1, ymin2) = (self.min.y, rhs.min.y);
 
-    return (xmax1 >= xmin2 && xmax2 >= xmin1) && (ymax1 >= ymin2 && ymax2 >= ymin1);
+        return (xmax1 >= xmin2 && xmax2 >= xmin1) && (ymax1 >= ymin2 && ymax2 >= ymin1);
+    }
 }
 
 #[non_exhaustive]
@@ -61,12 +61,11 @@ impl DungeonSculptor {
 impl Sculptor for DungeonSculptor {
     fn sculpt(&mut self, from: impl AsPosition, to: impl AsPosition, grid: &mut Grid) {
         let (from, to) = (from.into(), to.into());
-        let width = to.x - from.x;
-        let height = to.y - from.y;
 
-        let mut rooms = vec![];
-        for room_i in 0..self.room_amount.into() {
+        let mut rooms: Vec<Room> = vec![];
+        for _ in 0..self.room_amount.into() {
             let new_room = 'try_make_room: loop {
+                // HACK: always spawn rooms at odd coordinates so the corridors never merge
                 let min_x = self.rng.gen_range(from.x..to.x);
                 let min_y = self.rng.gen_range(from.y..to.y);
                 let max_x = min_x
@@ -84,7 +83,7 @@ impl Sculptor for DungeonSculptor {
                 };
 
                 for room in &rooms {
-                    if do_intersect(&room, &potential_room) {
+                    if room.overlaps(&potential_room) {
                         continue 'try_make_room;
                     }
                 }
@@ -142,6 +141,26 @@ impl Sculptor for DungeonSculptor {
 
         for room in rooms {
             grid.make_tile_box(room.min, room.max, self.floor.clone());
+        }
+
+        // lol
+        // TODO: there is a better way, optimize it
+        let mut walls_to_insert = vec![];
+        for tile in grid.grid.values() {
+            if tile.descriptor == self.floor {
+                for (pos, neighbour) in grid.tile_moore_neighbours(tile.position) {
+                    match neighbour {
+                        Some(_) => continue,
+                        None => {
+                            walls_to_insert.push(pos)
+                        }
+                    }
+                }
+            }
+        }
+
+        for wall in walls_to_insert {
+            grid.make_tile_at(wall, self.wall.clone());
         }
     }
 }
