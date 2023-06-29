@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{num::NonZeroU16, rc::Rc};
 
-use content::{bare_dungeon_sculptor, fill_sculptor, Sculptor};
+use content::{box_sculptor, fill_sculptor, sculptors::DungeonSculptor, Sculptor};
 use nalgebra_glm::{Vec2, Vec3};
 use winit::{
     dpi::PhysicalPosition,
@@ -61,7 +61,11 @@ pub fn frame_from_world<'a>(
                 pos: [pos.x as f32, pos.y as f32].into(),
                 layer: 1,
                 angle: 0.0,
-                tint: if occupier.is_some() { [50; 3] } else { [100; 3] },
+                tint: if occupier.is_some() {
+                    [50; 3]
+                } else {
+                    [100; 3]
+                },
             },
         );
     }
@@ -140,19 +144,15 @@ pub fn run() -> anyhow::Result<()> {
 
     let floor = TileDescription::new("Basic Floor", "tile.floor", TileFlags::PASSTHROUGH);
     let wall = TileDescription::new("Wall", "tile.wall", TileFlags::SOLID);
-    let mut sculptor = bare_dungeon_sculptor(floor, wall);
+    let mut sculptor = DungeonSculptor::new(
+        NonZeroU16::new(20).unwrap(),
+        ([4, 4], [20, 20]),
+        floor.clone(),
+        wall.clone(),
+    );
 
     let mut world = World::new(64, 64);
     sculptor.sculpt_all(&mut world.grid);
-
-    let player = world
-        .grid
-        .put_actor([1, 1], Actor::from_template(player))
-        .unwrap();
-    world
-        .grid
-        .put_actor([2, 2], Actor::from_template(snek))
-        .unwrap();
 
     let mut renderer = pollster::block_on(Renderer::new(window));
 
@@ -179,29 +179,6 @@ pub fn run() -> anyhow::Result<()> {
                 #[cfg(not(target_arch = "wasm32"))]
                 if input_handler.is_pressed(Escape) {
                     *control_flow = ControlFlow::Exit;
-                }
-
-                let mut player_desired_move = Position::zeros();
-
-                if input_handler.is_pressed(Numpad8) {
-                    player_desired_move += Position::new(0, 1);
-                }
-                if input_handler.is_pressed(Numpad2) {
-                    player_desired_move -= Position::new(0, 1);
-                }
-                if input_handler.is_pressed(Numpad6) {
-                    player_desired_move += Position::new(1, 0);
-                }
-                if input_handler.is_pressed(Numpad4) {
-                    player_desired_move -= Position::new(1, 0);
-                }
-
-                if player_desired_move != Position::zeros() {
-                    world.submit_action(engine::Action::MoveActor {
-                        actor_ref: player.clone(),
-                        to: player.get_data().try_valid_data().unwrap().cached_position
-                            + player_desired_move,
-                    });
                 }
 
                 camera_inputs = input_handler.get_axial(0);

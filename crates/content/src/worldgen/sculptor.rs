@@ -34,7 +34,7 @@ pub fn fill_sculptor(fill_with: TileDescriptor) -> impl Sculptor + Sized {
     }
 }
 
-pub fn bare_dungeon_sculptor(floor: TileDescriptor, wall: TileDescriptor) -> impl Sculptor + Sized {
+pub fn box_sculptor(floor: TileDescriptor, wall: TileDescriptor) -> impl Sculptor + Sized {
     let floor = floor.clone();
     let wall = wall.clone();
 
@@ -45,25 +45,22 @@ pub fn bare_dungeon_sculptor(floor: TileDescriptor, wall: TileDescriptor) -> imp
         let width = to.x - from.x;
         let height = to.y - from.y;
 
-        for i in 1..(height - 1) {
-            for j in 1..(width - 1) {
-                let y = i + from.y;
-                let x = j + from.x;
-
-                grid.make_tile_at([x, y], floor.clone());
-            }
-        }
+        fill_sculptor(floor.clone()).sculpt(
+            from + Position::new(1, 1),
+            to - Position::new(1, 1),
+            grid,
+        );
 
         for i in 0..height {
             let y = i + from.y;
-            grid.make_tile_at([0, y], wall.clone());
-            grid.make_tile_at([width - 2, y], wall.clone());
+            grid.make_tile_at([from.x, y], wall.clone());
+            grid.make_tile_at([from.x + width - 1, y], wall.clone());
         }
 
         for j in 1..(width - 1) {
             let x = j + from.x;
-            grid.make_tile_at([x, 0], wall.clone());
-            grid.make_tile_at([x, height - 1], wall.clone());
+            grid.make_tile_at([x, from.y], wall.clone());
+            grid.make_tile_at([x, from.y + height - 1], wall.clone());
         }
     }
 }
