@@ -1,4 +1,5 @@
 use engine::{AsPosition, Grid, Position, TileDescriptor};
+use nalgebra_glm::{vec2, distance2};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::num::NonZeroU16;
 
@@ -108,7 +109,12 @@ impl Sculptor for DungeonSculptor {
         let triangles = triangulate(&centroids[..]).triangles;
         for edge in triangles.windows(2) {
             if let [a, b] = *edge {
-                edges.push((a, b, 0))
+                let ac = rooms[a].centroid();
+                let bc = rooms[b].centroid();
+                let ac = vec2(ac.x as f32, ac.y as f32);
+                let bc = vec2(bc.x as f32, bc.y as f32);
+
+                edges.push((a, b, distance2(&ac, &bc) as i32))
             }
         }
 
@@ -116,7 +122,7 @@ impl Sculptor for DungeonSculptor {
         use pathfinding::undirected::kruskal::kruskal_indices;
         for (from, to, _weight) in kruskal_indices(rooms.len(), &edges[..]) {
             let a = rooms[from].centroid();
-            let mut b = rooms[to].centroid();
+            let b = rooms[to].centroid();
 
             let intersection: Position = if self.rng.gen_bool(0.5) {
                 [a.x, b.y]
@@ -130,7 +136,8 @@ impl Sculptor for DungeonSculptor {
         }
 
         for (from, to) in corridors {
-            grid.make_tile_box(from + Position::new(1, 1), to, self.floor.clone())
+            grid.make_tile_box(from + Position::new(1, 1), to, self.floor.clone());
+            grid.make_tile_at(from, self.floor.clone());
         }
 
         for room in rooms {
