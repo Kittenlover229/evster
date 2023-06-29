@@ -2,7 +2,7 @@ use engine::{AsPosition, Grid, Position, TileDescriptor};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::num::NonZeroU16;
 
-use crate::{box_sculptor, Sculptor};
+use crate::Sculptor;
 
 struct Room {
     pub(crate) min: Position,
@@ -88,10 +88,13 @@ impl Sculptor for DungeonSculptor {
             rooms.push(new_room);
         }
 
-        let mut sculptor = box_sculptor(self.floor.clone(), self.wall.clone());
         for room in rooms {
-            println!("{:?} {:?}", &room.min, &room.max);
-            sculptor.sculpt(room.min, room.max, grid);
+            grid.make_tile_box(
+                room.min,
+                room.max,
+                self.floor.clone(),
+                Some(self.wall.clone()),
+            );
         }
     }
 }

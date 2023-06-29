@@ -52,6 +52,45 @@ impl Grid {
         )
     }
 
+    pub fn make_tile_box(
+        &mut self,
+        from: impl AsPosition,
+        to: impl AsPosition,
+        fill: TileDescriptor,
+        border: Option<TileDescriptor>,
+    ) {
+        let (from, to) = (from.into(), to.into());
+
+        assert!(to.x > from.x);
+        assert!(to.y > from.y);
+
+        let width = to.x - from.x;
+        let height = to.y - from.y;
+
+        for i in 0..height {
+            for j in 0..width {
+                let y = i + from.y;
+                let x = j + from.x;
+
+                self.make_tile_at([x, y], fill.clone());
+            }
+        }
+
+        if let Some(border) = border {
+            for i in 0..height {
+                let y = i + from.y;
+                self.make_tile_at([from.x, y], border.clone());
+                self.make_tile_at([from.x + width - 1, y], border.clone());
+            }
+            
+            for j in 1..(width - 1) {
+                let x = j + from.x;
+                self.make_tile_at([x, from.y], border.clone());
+                self.make_tile_at([x, from.y + height - 1], border.clone());
+            }
+        }
+    }
+    
     pub fn move_actor(
         &mut self,
         from: impl AsPosition,

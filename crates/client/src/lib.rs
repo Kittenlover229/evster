@@ -1,6 +1,6 @@
 use std::{num::NonZeroU16, rc::Rc};
 
-use content::{box_sculptor, fill_sculptor, sculptors::DungeonSculptor, Sculptor};
+use content::{sculptors::DungeonSculptor, Sculptor};
 use nalgebra_glm::{Vec2, Vec3};
 use winit::{
     dpi::PhysicalPosition,
@@ -151,9 +151,6 @@ pub fn run() -> anyhow::Result<()> {
         wall.clone(),
     );
 
-    let mut world = World::new(64, 64);
-    sculptor.sculpt_all(&mut world.grid);
-
     let mut renderer = pollster::block_on(Renderer::new(window));
 
     let atlas = Atlas::default_from_device(
@@ -161,6 +158,21 @@ pub fn run() -> anyhow::Result<()> {
         &renderer.queue,
         &renderer.atlas_bind_layout,
     );
+
+    let mut world = World::new(64, 64);
+    sculptor.sculpt_all(&mut world.grid);
+    let start_tile = world
+        .grid
+        .grid
+        .values()
+        .find(|x| x.flags() == TileFlags::PASSTHROUGH)
+        .map(|x| x.position)
+        .unwrap();
+
+    world
+        .grid
+        .put_actor(start_tile, Actor::from_template(player));
+    renderer.camera.borrow_mut().position = [start_tile.x as f32, start_tile.y as f32, 0.].into();
 
     let mut cursor_pos = PhysicalPosition::default();
     let mut camera_inputs = Vec2::new(0., 0.);

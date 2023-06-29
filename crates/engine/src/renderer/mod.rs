@@ -153,7 +153,7 @@ impl Renderer {
         let camera = Camera {
             position: vec3(0., 0., -1.),
             ratio: 16f32 / 9f32,
-            zoom: 1. / 25.,
+            zoom: 1. / 10.,
             objects_on_screen_cap: 16 * 16 * 16,
         };
 
