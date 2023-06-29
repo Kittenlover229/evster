@@ -89,12 +89,7 @@ impl Sculptor for DungeonSculptor {
         }
 
         for room in rooms {
-            grid.make_tile_box(
-                room.min,
-                room.max,
-                self.floor.clone(),
-                Some(self.wall.clone()),
-            );
+            grid.make_tile_box(room.min, room.max, self.floor.clone());
         }
     }
 }

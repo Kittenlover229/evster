@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{mem::swap, rc::Rc};
 
 use hashbrown::HashMap;
 
@@ -9,6 +9,19 @@ use crate::{Actor, ActorHandle, ActorReference, AsPosition, Position};
 pub struct Grid {
     pub size: Position,
     pub grid: hashbrown::HashMap<Position, Tile>,
+}
+
+fn min_max_aabb_from_rect(a: impl AsPosition, b: impl AsPosition) -> (Position, Position) {
+    let (mut a, mut b) = (a.into(), b.into());
+
+    if b.x < a.x {
+        swap(&mut a.x, &mut b.x);
+    }
+    if b.y < a.y {
+        swap(&mut a.y, &mut b.y);
+    }
+
+    (a, b)
 }
 
 impl Grid {
@@ -52,17 +65,40 @@ impl Grid {
         )
     }
 
+    pub fn make_tile_bordered_box(
+        &mut self,
+        from: impl AsPosition,
+        to: impl AsPosition,
+        fill: TileDescriptor,
+        border: TileDescriptor,
+    ) {
+        let (from, to) = min_max_aabb_from_rect(from, to);
+
+        let width = to.x - from.x;
+        let height = to.y - from.y;
+
+        self.make_tile_box(from, to, fill);
+
+        for i in 0..height {
+            let y = i + from.y;
+            self.make_tile_at([from.x, y], border.clone());
+            self.make_tile_at([from.x + width - 1, y], border.clone());
+        }
+
+        for j in 1..(width - 1) {
+            let x = j + from.x;
+            self.make_tile_at([x, from.y], border.clone());
+            self.make_tile_at([x, from.y + height - 1], border.clone());
+        }
+    }
+
     pub fn make_tile_box(
         &mut self,
         from: impl AsPosition,
         to: impl AsPosition,
         fill: TileDescriptor,
-        border: Option<TileDescriptor>,
     ) {
-        let (from, to) = (from.into(), to.into());
-
-        assert!(to.x > from.x);
-        assert!(to.y > from.y);
+        let (from, to) = min_max_aabb_from_rect(from, to);
 
         let width = to.x - from.x;
         let height = to.y - from.y;
@@ -75,22 +111,8 @@ impl Grid {
                 self.make_tile_at([x, y], fill.clone());
             }
         }
-
-        if let Some(border) = border {
-            for i in 0..height {
-                let y = i + from.y;
-                self.make_tile_at([from.x, y], border.clone());
-                self.make_tile_at([from.x + width - 1, y], border.clone());
-            }
-            
-            for j in 1..(width - 1) {
-                let x = j + from.x;
-                self.make_tile_at([x, from.y], border.clone());
-                self.make_tile_at([x, from.y + height - 1], border.clone());
-            }
-        }
     }
-    
+
     pub fn move_actor(
         &mut self,
         from: impl AsPosition,
