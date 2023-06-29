@@ -370,8 +370,8 @@ pub struct FrameBuilder<'a> {
 }
 
 impl FrameBuilder<'_> {
-    pub fn draw_sprite(mut self, sprite_idx: u32, instance: Instance) -> Self {
-        /*let (cull_min, cull_max) = self.renderer.camera.borrow().camera_culling_aabb();
+    pub fn draw_sprite(&mut self, sprite_idx: u32, instance: Instance) -> &mut Self {
+        let (cull_min, cull_max) = self.renderer.camera.borrow().camera_culling_aabb();
 
         let centroid = instance.pos;
         if !(centroid.x > cull_min.x
@@ -380,7 +380,7 @@ impl FrameBuilder<'_> {
             && centroid.y < cull_max.y)
         {
             return self;
-        }*/
+        }
 
         self.command_queue.push((sprite_idx, instance));
 

@@ -9,6 +9,12 @@ struct Room {
     pub(crate) max: Position,
 }
 
+impl Room {
+    pub fn centroid(&self) -> Position {
+        self.min / 2 + self.max / 2
+    }
+}
+
 fn do_intersect(a: &Room, b: &Room) -> bool {
     let (xmax1, xmax2) = (a.max.x, b.max.x);
     let (ymax1, ymax2) = (a.max.y, b.max.y);
@@ -86,6 +92,45 @@ impl Sculptor for DungeonSculptor {
             };
 
             rooms.push(new_room);
+        }
+
+        use delaunator::{triangulate, Point};
+        let centroids: Vec<_> = rooms
+            .iter()
+            .map(|room| room.centroid())
+            .map(|c| Point {
+                x: c.x as f64,
+                y: c.y as f64,
+            })
+            .collect();
+
+        let mut edges: Vec<_> = vec![];
+        let triangles = triangulate(&centroids[..]).triangles;
+        for edge in triangles.windows(2) {
+            if let [a, b] = *edge {
+                edges.push((a, b, 0))
+            }
+        }
+
+        let mut corridors = vec![];
+        use pathfinding::undirected::kruskal::kruskal_indices;
+        for (from, to, _weight) in kruskal_indices(rooms.len(), &edges[..]) {
+            let a = rooms[from].centroid();
+            let mut b = rooms[to].centroid();
+
+            let intersection: Position = if self.rng.gen_bool(0.5) {
+                [a.x, b.y]
+            } else {
+                [b.x, a.y]
+            }
+            .into();
+
+            corridors.push((a, intersection));
+            corridors.push((intersection, b));
+        }
+
+        for (from, to) in corridors {
+            grid.make_tile_box(from + Position::new(1, 1), to, self.floor.clone())
         }
 
         for room in rooms {

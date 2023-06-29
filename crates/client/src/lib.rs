@@ -38,7 +38,7 @@ pub fn frame_from_world<'a>(
                 .resolve_resource(actor.get_data().actor().template().resource_name())
                 .map_or(0, |x| x.0);
 
-            builder = builder.draw_sprite(
+            builder.draw_sprite(
                 actor_sprite_idx,
                 Instance {
                     size: 1.0,
@@ -54,7 +54,7 @@ pub fn frame_from_world<'a>(
             .resolve_resource(&descriptor.as_ref().resource_name)
             .map_or(0, |x| x.0);
 
-        builder = builder.draw_sprite(
+        builder.draw_sprite(
             tile_sprite_idx,
             Instance {
                 size: 1.0,
