@@ -46,14 +46,14 @@ impl Grid {
     pub fn make_tile_at(
         &mut self,
         position: impl AsPosition,
-        descriptor: TileDescriptor,
+        material: MaterialHandle,
     ) -> (Option<Tile>, &Tile) {
         let pos = position.into();
         let displaced = self.grid.insert(
             pos,
             Tile {
                 position: pos,
-                descriptor,
+                material,
                 occupier: None,
             },
         );
@@ -69,8 +69,8 @@ impl Grid {
         &mut self,
         from: impl AsPosition,
         to: impl AsPosition,
-        fill: TileDescriptor,
-        border: TileDescriptor,
+        fill: MaterialHandle,
+        border: MaterialHandle,
     ) {
         let (from, to) = min_max_aabb_from_rect(from, to);
 
@@ -119,7 +119,7 @@ impl Grid {
         &mut self,
         from: impl AsPosition,
         to: impl AsPosition,
-        fill: TileDescriptor,
+        fill: MaterialHandle,
     ) {
         let (from, to) = min_max_aabb_from_rect(from, to);
 
@@ -191,19 +191,19 @@ bitflags::bitflags! {
 
 #[non_exhaustive]
 #[derive(Debug, PartialEq, Eq)]
-pub struct TileDescription {
+pub struct Material {
     pub display_name: String,
     pub resource_name: String,
     pub flags: TileFlags,
 }
 
-impl TileDescription {
+impl Material {
     pub fn new(
         display_name: impl ToString,
         resource_name: impl ToString,
         flags: TileFlags,
-    ) -> TileDescriptor {
-        Rc::new(TileDescription {
+    ) -> MaterialHandle {
+        Rc::new(Material {
             display_name: display_name.to_string(),
             resource_name: resource_name.to_string(),
             flags,
@@ -211,13 +211,13 @@ impl TileDescription {
     }
 }
 
-pub type TileDescriptor = Rc<TileDescription>;
+pub type MaterialHandle = Rc<Material>;
 
 #[derive(Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Tile {
     pub position: Position,
-    pub descriptor: TileDescriptor,
+    pub material: MaterialHandle,
     pub occupier: Option<ActorHandle>,
 }
 
@@ -227,6 +227,6 @@ impl Tile {
     }
 
     pub fn flags(&self) -> TileFlags {
-        self.descriptor.flags
+        self.material.flags
     }
 }

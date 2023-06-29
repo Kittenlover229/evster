@@ -1,4 +1,4 @@
-use engine::{AsPosition, Grid, Position, TileDescriptor};
+use engine::{AsPosition, Grid, Position, MaterialHandle};
 use nalgebra_glm::{distance2, vec2, Vec2};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::num::NonZeroU16;
@@ -30,8 +30,8 @@ pub struct DungeonSculptor {
     room_amount: NonZeroU16,
     max_trials: u32,
 
-    floor: TileDescriptor,
-    wall: TileDescriptor,
+    floor: MaterialHandle,
+    wall: MaterialHandle,
 
     max_room_size: Position,
     min_room_size: Position,
@@ -43,8 +43,8 @@ impl DungeonSculptor {
     pub fn new(
         room_amount: NonZeroU16,
         room_size: (impl AsPosition, impl AsPosition),
-        floor: TileDescriptor,
-        wall: TileDescriptor,
+        floor: MaterialHandle,
+        wall: MaterialHandle,
     ) -> Self {
         Self {
             max_trials: 0xFFFF,
@@ -147,7 +147,7 @@ impl Sculptor for DungeonSculptor {
         // TODO: there is a better way, optimize it
         let mut walls_to_insert = vec![];
         for tile in grid.grid.values() {
-            if tile.descriptor == self.floor {
+            if tile.material == self.floor {
                 for (pos, neighbour) in grid.tile_moore_neighbours(tile.position) {
                     match neighbour {
                         Some(_) => continue,

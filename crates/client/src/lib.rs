@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 
 use engine::{
     Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Position, Renderer, Tile, TileDescription, TileFlags, World,
+    Position, Renderer, Tile, Material, TileFlags, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -28,7 +28,7 @@ pub fn frame_from_world<'a>(
         pos,
         Tile {
             occupier,
-            descriptor,
+            material: descriptor,
             ..
         },
     ) in &world.grid
@@ -142,8 +142,8 @@ pub fn run() -> anyhow::Result<()> {
     let player = ActorTemplate::new("Player", "creature.player");
     let player = Rc::new(player);
 
-    let floor = TileDescription::new("Basic Floor", "tile.floor", TileFlags::PASSTHROUGH);
-    let wall = TileDescription::new("Wall", "tile.wall", TileFlags::SOLID);
+    let floor = Material::new("Basic Floor", "tile.floor", TileFlags::PASSTHROUGH);
+    let wall = Material::new("Wall", "tile.wall", TileFlags::SOLID);
     let mut sculptor = DungeonSculptor::new(
         NonZeroU16::new(50).unwrap(),
         ([4, 4], [10, 10]),

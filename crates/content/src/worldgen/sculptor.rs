@@ -1,4 +1,4 @@
-use engine::{AsPosition, Grid, Position, TileDescriptor};
+use engine::{AsPosition, Grid, Position, MaterialHandle};
 
 pub trait Sculptor {
     fn sculpt_all(&mut self, grid: &mut Grid) {
