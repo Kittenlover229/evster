@@ -1,5 +1,5 @@
-use engine::{AsPosition, Grid, Position, MaterialHandle};
-use nalgebra_glm::{distance2, vec2, Vec2};
+use engine::{AsPosition, Grid, MaterialHandle, Position};
+use nalgebra_glm::{distance2, vec2};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::num::NonZeroU16;
 
@@ -59,6 +59,7 @@ impl DungeonSculptor {
 }
 
 impl Sculptor for DungeonSculptor {
+    #[profiling::function]
     fn sculpt(&mut self, from: impl AsPosition, to: impl AsPosition, grid: &mut Grid) {
         let (from, to) = (from.into(), to.into());
 
@@ -104,35 +105,43 @@ impl Sculptor for DungeonSculptor {
             })
             .collect();
 
-        let mut edges: Vec<_> = vec![];
-        let triangles = triangulate(&centroids[..]).triangles;
-        for edge in triangles.windows(2) {
-            if let [a, b] = *edge {
-                let ac = rooms[a].centroid();
-                let bc = rooms[b].centroid();
-                let ac = vec2(ac.x as f32, ac.y as f32);
-                let bc = vec2(bc.x as f32, bc.y as f32);
+        let edges = {
+            profiling::scope!("Triangulation");
+            let mut edges: Vec<_> = vec![];
+            let triangles = triangulate(&centroids[..]).triangles;
+            for edge in triangles.windows(2) {
+                if let [a, b] = *edge {
+                    let ac = rooms[a].centroid();
+                    let bc = rooms[b].centroid();
+                    let ac = vec2(ac.x as f32, ac.y as f32);
+                    let bc = vec2(bc.x as f32, bc.y as f32);
 
-                edges.push((a, b, distance2(&ac, &bc) as i32))
+                    edges.push((a, b, distance2(&ac, &bc) as i32))
+                }
             }
-        }
+            edges
+        };
 
-        let mut corridors = vec![];
-        use pathfinding::undirected::kruskal::kruskal_indices;
-        for (from, to, _weight) in kruskal_indices(rooms.len(), &edges[..]) {
-            let a = rooms[from].centroid();
-            let b = rooms[to].centroid();
+        let corridors = {
+            profiling::scope!("Kruskal's Algorithm");
+            let mut corridors = vec![];
+            use pathfinding::undirected::kruskal::kruskal_indices;
+            for (from, to, _weight) in kruskal_indices(rooms.len(), &edges[..]) {
+                let a = rooms[from].centroid();
+                let b = rooms[to].centroid();
 
-            let intersection: Position = if self.rng.gen_bool(0.5) {
-                [a.x, b.y]
-            } else {
-                [b.x, a.y]
+                let intersection: Position = if self.rng.gen_bool(0.5) {
+                    [a.x, b.y]
+                } else {
+                    [b.x, a.y]
+                }
+                .into();
+
+                corridors.push((a, intersection));
+                corridors.push((intersection, b));
             }
-            .into();
-
-            corridors.push((a, intersection));
-            corridors.push((intersection, b));
-        }
+            corridors
+        };
 
         for (from, to) in corridors {
             grid.make_tile_box(from + Position::new(1, 1), to, self.floor.clone());
@@ -145,22 +154,27 @@ impl Sculptor for DungeonSculptor {
 
         // lol
         // TODO: there is a better way, optimize it
-        let mut walls_to_insert = vec![];
-        for tile in grid.grid.values() {
-            if tile.material == self.floor {
-                for (pos, neighbour) in grid.tile_moore_neighbours(tile.position) {
-                    match neighbour {
-                        Some(_) => continue,
-                        None => {
-                            walls_to_insert.push(pos)
+        {
+            profiling::scope!("Wall Generation");
+
+            let mut walls_to_insert = vec![];
+            {
+                profiling::scope!("Locating Walls");
+                for tile in grid.grid.values() {
+                    if tile.material == self.floor {
+                        for (pos, neighbour) in grid.tile_moore_neighbours(tile.position) {
+                            match neighbour {
+                                Some(_) => continue,
+                                None => walls_to_insert.push(pos),
+                            }
                         }
                     }
                 }
             }
-        }
 
-        for wall in walls_to_insert {
-            grid.make_tile_at(wall, self.wall.clone());
+            for wall in walls_to_insert {
+                grid.make_tile_at(wall, self.wall.clone());
+            }
         }
     }
 }

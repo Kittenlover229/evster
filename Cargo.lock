@@ -322,6 +322,7 @@ dependencies = [
  "console_log",
  "content",
  "engine",
+ "instant",
  "log",
  "nalgebra-glm",
  "pollster",
@@ -394,6 +395,7 @@ dependencies = [
  "engine",
  "nalgebra-glm",
  "pathfinding",
+ "profiling",
  "rand",
 ]
 
@@ -1674,6 +1676,30 @@ name = "profiling"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "332cd62e95873ea4f41f3dfd6bbbfc5b52aec892d7e8d534197c4720a0bbbab2"
+dependencies = [
+ "profiling-procmacros",
+ "puffin 0.12.1",
+]
+
+[[package]]
+name = "profiling-procmacros"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a10adb8d151bb1280afb8bed41ae5db26be1b056964947133c7525b0bf39c0b0"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "puffin"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "023514fb1e29a290a5c8237ceba94a30e4637be78df9f168ae991c1b957457e2"
+dependencies = [
+ "byteorder",
+ "once_cell",
+]
 
 [[package]]
 name = "puffin"
@@ -1697,6 +1723,7 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "instant",
+ "js-sys",
  "lz4_flex",
  "once_cell",
  "parking_lot",

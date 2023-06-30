@@ -90,7 +90,9 @@ pub fn run() -> anyhow::Result<()> {
         }
     }
 
+    puffin::ThreadProfiler::initialize(puffin::now_ns, puffin::global_reporter);
     puffin::set_scopes_on(true);
+    puffin::GlobalProfiler::lock().new_frame();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -100,7 +102,7 @@ pub fn run() -> anyhow::Result<()> {
     let mut input_handler = InputHandler::new_with_filter(
         {
             use VirtualKeyCode::*;
-            vec![Space, Escape, Numpad8, Numpad4, Numpad6, Numpad2]
+            vec![Space, Escape, Numpad8, Numpad4, Numpad6, Numpad2, Slash]
         }
         .into_iter(),
         [{
@@ -121,7 +123,7 @@ pub fn run() -> anyhow::Result<()> {
         // Winit prevents sizing with CSS, so we have to set
         // the size manually when on web.
         use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(800, 800));
+        window.set_inner_size(PhysicalSize::new(1000, 900));
 
         use winit::platform::web::WindowExtWebSys;
         web_sys::window()
@@ -183,38 +185,49 @@ pub fn run() -> anyhow::Result<()> {
                 ref event,
                 window_id,
             } if window_id == renderer.window().id() => {
-                if renderer.egui_input_state.on_event(&renderer.egui_context, event).consumed {
+                puffin::profile_scope!("Handle Inputs");
+                if renderer
+                    .egui_input_state
+                    .on_event(&renderer.egui_context, event)
+                    .consumed
+                {
                     return;
                 }
-                
+
                 match event {
-                WindowEvent::KeyboardInput { input, .. } => {
-                    input_handler.handle_input(input);
+                    WindowEvent::KeyboardInput { input, .. } => {
+                        input_handler.handle_input(input);
 
-                    use VirtualKeyCode::*;
+                        use VirtualKeyCode::*;
 
-                    #[cfg(not(target_arch = "wasm32"))]
-                    if input_handler.is_pressed(Escape) {
-                        *control_flow = ControlFlow::Exit;
+                        #[cfg(not(target_arch = "wasm32"))]
+                        if input_handler.is_pressed(Escape) {
+                            *control_flow = ControlFlow::Exit;
+                        }
+
+                        if input_handler.is_pressed(Slash) {
+                            let is_profiler_enabled = renderer.is_profiler_enabled();
+                            renderer.enable_puffin_gui.set(!is_profiler_enabled);
+                        }
+
+                        camera_inputs = input_handler.get_axial(0);
                     }
 
-                    camera_inputs = input_handler.get_axial(0);
-                }
+                    WindowEvent::CursorMoved { position, .. } => {
+                        cursor_pos = *position;
+                    }
 
-                WindowEvent::CursorMoved { position, .. } => {
-                    cursor_pos = *position;
-                }
+                    WindowEvent::Resized(physical_size) => {
+                        renderer.resize(*physical_size);
+                    }
 
-                WindowEvent::Resized(physical_size) => {
-                    renderer.resize(*physical_size);
-                }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        renderer.resize(**new_inner_size);
+                    }
 
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    renderer.resize(**new_inner_size);
+                    _ => {}
                 }
-
-                _ => {}
-            }},
+            }
 
             Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
                 input_handler.flush();
@@ -239,11 +252,14 @@ pub fn run() -> anyhow::Result<()> {
                     },
                 );*/
 
-                match frame.end_frame() {
-                    Ok(_) => {}
-                    Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
-                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                    Err(e) => eprintln!("{:?}", e),
+                {
+                    puffin::profile_scope!("End Frame & Present");
+                    match frame.end_frame() {
+                        Ok(_) => {}
+                        Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
+                        Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                        Err(e) => eprintln!("{:?}", e),
+                    }
                 }
             }
 

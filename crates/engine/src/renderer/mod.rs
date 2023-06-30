@@ -1,4 +1,5 @@
-use std::cell::{OnceCell, RefCell};
+use std::borrow::Borrow;
+use std::cell::{Cell, OnceCell, RefCell};
 
 use self::egui::{Context as EguiContext, Renderer as EguiRenderer};
 use ::egui::RawInput;
@@ -124,6 +125,7 @@ pub struct Renderer {
     pub atlas_bind_layout: wgpu::BindGroupLayout,
 
     /* debugging */
+    pub enable_puffin_gui: Cell<bool>,
     pub egui_input_state: egui_winit::State,
     pub egui_context: EguiContext,
     pub egui_renderer: EguiRenderer,
@@ -307,6 +309,7 @@ impl Renderer {
         let egui_input_state = egui_winit::State::new(&window);
 
         Renderer {
+            enable_puffin_gui: Cell::new(false),
             egui_context,
             egui_renderer,
             time_since_start_seconds: 0.,
@@ -388,6 +391,10 @@ impl Renderer {
             command_queue: vec![],
         }
     }
+
+    pub fn is_profiler_enabled(&self) -> bool {
+        self.enable_puffin_gui.get()
+    }
 }
 
 pub struct FrameBuilder<'a> {
@@ -423,6 +430,8 @@ impl FrameBuilder<'_> {
     }
 
     fn sort_sprites(&mut self) {
+        puffin::profile_function!();
+
         self.command_queue
             .sort_unstable_by(|(a_sprite, a_instance), (b_sprite, b_instance)| {
                 match a_instance.layer.cmp(&b_instance.layer) {
@@ -433,6 +442,8 @@ impl FrameBuilder<'_> {
     }
 
     pub fn end_frame(mut self) -> Result<(), wgpu::SurfaceError> {
+        puffin::profile_function!();
+
         self.sort_sprites();
 
         let FrameBuilder {
@@ -474,7 +485,9 @@ impl FrameBuilder<'_> {
                 label: Some("Render Encoder"),
             });
 
-        puffin_egui::profiler_window(&renderer.egui_context);
+        if renderer.is_profiler_enabled() {
+            puffin_egui::profiler_window(&renderer.egui_context);
+        }
 
         let egui_output = renderer.egui_context.end_frame();
         let egui_paint_job = renderer.egui_context.tessellate(egui_output.shapes);

@@ -33,11 +33,16 @@
                     throw error;
                 }
             });
+        window.onload = () => {
+            document.getElementById("evster-attach-here").addEventListener("contextmenu", e => {
+                e.preventDefault()
+            });
+        }
     </script>
 </head>
 
 <body>
-    <div class="center" id="evster-attach-here">
+    <div class="center" id="evster-attach-here" oncontextmenu="return false;">
 
     </div>
 </body>
