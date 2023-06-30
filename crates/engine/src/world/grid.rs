@@ -1,6 +1,7 @@
 use std::{mem::swap, rc::Rc};
 
 use hashbrown::HashMap;
+use puffin_egui::puffin::profile_function;
 
 use crate::{Actor, ActorHandle, ActorReference, AsPosition, Position};
 
@@ -93,6 +94,7 @@ impl Grid {
     }
 
     pub fn tile_neumann_neighbours(&self, at: impl AsPosition) -> [(Position, Option<&Tile>); 4] {
+        profile_function!();
         let at = at.into();
         [[0, 1], [1, 0], [0, -1], [-1, 0]]
             .map(Position::from)
@@ -100,6 +102,7 @@ impl Grid {
     }
 
     pub fn tile_moore_neighbours(&self, at: impl AsPosition) -> [(Position, Option<&Tile>); 8] {
+        profile_function!();
         let at = at.into();
         [
             [0, 1],

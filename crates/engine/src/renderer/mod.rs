@@ -8,7 +8,7 @@ use egui_wgpu::renderer::ScreenDescriptor;
 use glm::{vec4, Mat4};
 use nalgebra_glm as glm;
 use nalgebra_glm::{vec3, Vec2};
-use puffin_egui::puffin;
+use puffin_egui::puffin::{self, profile_function, profile_scope};
 use wgpu::{util::DeviceExt, BindGroup, BufferUsages};
 use winit::dpi::PhysicalPosition;
 use winit::window::Window;
@@ -133,6 +133,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub async fn new(window: Window) -> Self {
+        profile_function!();
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -392,6 +393,30 @@ impl Renderer {
         }
     }
 
+    pub fn tick_timers(&mut self) {
+        let now = instant::Instant::now();
+        let start_time = self.start_time.get_or_init(|| now);
+        let time_since_start_millis =
+            // There is probably a more idiomatic way to do this
+            (now.duration_since(start_time.to_owned()).as_millis() % u32::MAX as u128) as u32;
+        let delta_time = now
+            .duration_since(self.last_render_time.unwrap_or(now))
+            .as_secs_f32();
+        self.time_since_start_seconds = now.duration_since(start_time.to_owned()).as_secs_f64();
+
+        self.last_render_time.replace(now);
+        self.delta_time = delta_time;
+
+        self.queue.write_buffer(
+            &self.time_buffer,
+            0,
+            bytemuck::cast_slice(&[TimeRaw {
+                delta_time,
+                time_since_start_millis,
+            }]),
+        );
+    }
+
     pub fn is_profiler_enabled(&self) -> bool {
         self.enable_puffin_gui.get()
     }
@@ -442,7 +467,7 @@ impl FrameBuilder<'_> {
     }
 
     pub fn end_frame(mut self) -> Result<(), wgpu::SurfaceError> {
-        puffin::profile_function!();
+        profile_function!();
 
         self.sort_sprites();
 
@@ -452,27 +477,7 @@ impl FrameBuilder<'_> {
             atlas,
         } = self;
 
-        let now = instant::Instant::now();
-        let start_time = renderer.start_time.get_or_init(|| now);
-        let time_since_start_millis =
-            // There is probably a more idiomatic way to do this
-            (now.duration_since(start_time.to_owned()).as_millis() % u32::MAX as u128) as u32;
-        let delta_time = now
-            .duration_since(renderer.last_render_time.unwrap_or(now))
-            .as_secs_f32();
-        renderer.time_since_start_seconds = now.duration_since(start_time.to_owned()).as_secs_f64();
-
-        renderer.last_render_time.replace(now);
-        renderer.delta_time = delta_time;
-
-        renderer.queue.write_buffer(
-            &renderer.time_buffer,
-            0,
-            bytemuck::cast_slice(&[TimeRaw {
-                delta_time,
-                time_since_start_millis,
-            }]),
-        );
+        renderer.tick_timers();
 
         let output = renderer.surface.get_current_texture()?;
         let view = output
@@ -523,6 +528,7 @@ impl FrameBuilder<'_> {
         );
 
         {
+            profile_scope!("build_render_pass");
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {

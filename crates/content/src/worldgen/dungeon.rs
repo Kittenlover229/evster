@@ -94,18 +94,18 @@ impl Sculptor for DungeonSculptor {
 
             rooms.push(new_room);
         }
-
-        use delaunator::{triangulate, Point};
-        let centroids: Vec<_> = rooms
-            .iter()
-            .map(|room| room.centroid())
-            .map(|c| Point {
-                x: c.x as f64,
-                y: c.y as f64,
-            })
-            .collect();
-
+        
         let edges = {
+            use delaunator::{triangulate, Point};
+            let centroids: Vec<_> = rooms
+                .iter()
+                .map(|room| room.centroid())
+                .map(|c| Point {
+                    x: c.x as f64,
+                    y: c.y as f64,
+                })
+                .collect();
+
             profiling::scope!("Triangulation");
             let mut edges: Vec<_> = vec![];
             let triangles = triangulate(&centroids[..]).triangles;
