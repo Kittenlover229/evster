@@ -4,6 +4,7 @@
 #![feature(ptr_as_uninit)]
 #![feature(iter_from_generator)]
 #![feature(try_trait_v2)]
+#![windows_subsystem = "windows"]
 
 mod renderer;
 mod input;
