@@ -19,3 +19,8 @@ thiserror = "1.0.40"
 instant = "0.1"
 bitflags = "2.3.3"
 rand = "0.8.5"
+egui-wgpu = { version = "0.22.0", features = ["puffin", "winit"] }
+egui = "0.22.0"
+puffin_egui = "0.22.0"
+egui-winit = "0.22.0"
+raw-window-handle = "0.5.2"

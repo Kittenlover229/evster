@@ -13,17 +13,15 @@ use winit::{
 use wasm_bindgen::prelude::*;
 
 use engine::{
-    Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Material, Position, Renderer, Tile, TileFlags, World,
+    egui, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
+    Material, Renderer, Tile, TileFlags, World,
 };
 
 pub fn frame_from_world<'a>(
-    renderer: &'a mut Renderer,
     world: &Grid,
     atlas: &'a Atlas,
+    mut builder: FrameBuilder<'a>,
 ) -> FrameBuilder<'a> {
-    let mut builder = renderer.begin_frame(atlas);
-
     for (
         pos,
         Tile {
@@ -92,12 +90,13 @@ pub fn run() -> anyhow::Result<()> {
         }
     }
 
+    puffin::set_scopes_on(true);
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Evster")
         .build(&event_loop)
         .unwrap();
-    window.set_cursor_visible(false);
     let mut input_handler = InputHandler::new_with_filter(
         {
             use VirtualKeyCode::*;
@@ -178,72 +177,80 @@ pub fn run() -> anyhow::Result<()> {
     let mut camera_inputs = Vec2::new(0., 0.);
     let camera_speed = 12.;
 
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent {
-            ref event,
-            window_id,
-        } if window_id == renderer.window().id() => match event {
-            WindowEvent::KeyboardInput { input, .. } => {
-                input_handler.handle_input(input);
+    event_loop.run(move |event, _, control_flow| {
+        match event {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == renderer.window().id() => {
+                if renderer.egui_input_state.on_event(&renderer.egui_context, event).consumed {
+                    return;
+                }
+                
+                match event {
+                WindowEvent::KeyboardInput { input, .. } => {
+                    input_handler.handle_input(input);
 
-                use VirtualKeyCode::*;
+                    use VirtualKeyCode::*;
 
-                #[cfg(not(target_arch = "wasm32"))]
-                if input_handler.is_pressed(Escape) {
-                    *control_flow = ControlFlow::Exit;
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if input_handler.is_pressed(Escape) {
+                        *control_flow = ControlFlow::Exit;
+                    }
+
+                    camera_inputs = input_handler.get_axial(0);
                 }
 
-                camera_inputs = input_handler.get_axial(0);
+                WindowEvent::CursorMoved { position, .. } => {
+                    cursor_pos = *position;
+                }
+
+                WindowEvent::Resized(physical_size) => {
+                    renderer.resize(*physical_size);
+                }
+
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    renderer.resize(**new_inner_size);
+                }
+
+                _ => {}
+            }},
+
+            Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
+                input_handler.flush();
+
+                renderer.camera.borrow_mut().position += renderer.delta_time
+                    * camera_speed
+                    * Vec3::new(camera_inputs.x as _, camera_inputs.y as _, 0.);
+                renderer.refresh_camera();
+                let cursor_pos = renderer.window_space_to_world(&cursor_pos);
+                let cursor_scale = renderer.time_since_start_seconds.sin() as f32 * 0.1 + 1.0;
+
+                let builder = renderer.begin_frame(&atlas);
+                let mut frame = frame_from_world(&world.grid, &atlas, builder);
+                /*frame.draw_sprite(
+                    7,
+                    Instance {
+                        size: cursor_scale,
+                        pos: cursor_pos,
+                        layer: 3,
+                        angle: 0.0,
+                        tint: [255; 3],
+                    },
+                );*/
+
+                match frame.end_frame() {
+                    Ok(_) => {}
+                    Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
+                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    Err(e) => eprintln!("{:?}", e),
+                }
             }
 
-            WindowEvent::CursorMoved { position, .. } => {
-                cursor_pos = *position;
+            Event::MainEventsCleared => {
+                renderer.window().request_redraw();
             }
-
-            WindowEvent::Resized(physical_size) => {
-                renderer.resize(*physical_size);
-            }
-
-            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                renderer.resize(**new_inner_size);
-            }
-
             _ => {}
-        },
-
-        Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
-            input_handler.flush();
-
-            renderer.camera.borrow_mut().position += renderer.delta_time
-                * camera_speed
-                * Vec3::new(camera_inputs.x as _, camera_inputs.y as _, 0.);
-            renderer.refresh_camera();
-            let cursor_pos = renderer.window_space_to_world(&cursor_pos);
-            let cursor_scale = renderer.time_since_start_seconds.sin() as f32 * 0.1 + 1.0;
-
-            let mut frame = frame_from_world(&mut renderer, &world.grid, &atlas);
-            frame.draw_sprite(
-                7,
-                Instance {
-                    size: cursor_scale,
-                    pos: cursor_pos,
-                    layer: 3,
-                    angle: 0.0,
-                    tint: [255; 3],
-                },
-            );
-
-            match frame.end_frame() {
-                Ok(_) => {}
-                Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
-                Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                Err(e) => eprintln!("{:?}", e),
-            }
         }
-
-        Event::MainEventsCleared => {
-            renderer.window().request_redraw();
-        }
-        _ => {}
     });
 }

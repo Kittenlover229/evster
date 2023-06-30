@@ -1,9 +1,13 @@
 use std::cell::{OnceCell, RefCell};
 
+use self::egui::{Context as EguiContext, Renderer as EguiRenderer};
+use ::egui::RawInput;
 use bytemuck::{Pod, Zeroable};
+use egui_wgpu::renderer::ScreenDescriptor;
 use glm::{vec4, Mat4};
 use nalgebra_glm as glm;
 use nalgebra_glm::{vec3, Vec2};
+use puffin_egui::puffin;
 use wgpu::{util::DeviceExt, BindGroup, BufferUsages};
 use winit::dpi::PhysicalPosition;
 use winit::window::Window;
@@ -15,6 +19,11 @@ mod vertex;
 pub use atlas::*;
 pub use camera::*;
 pub use vertex::*;
+
+pub mod egui {
+    pub use egui::*;
+    pub use egui_wgpu::Renderer;
+}
 
 #[derive(Debug)]
 pub struct Instance {
@@ -113,6 +122,11 @@ pub struct Renderer {
     /* bind groups */
     pub camera_bind_group: BindGroup,
     pub atlas_bind_layout: wgpu::BindGroupLayout,
+
+    /* debugging */
+    pub egui_input_state: egui_winit::State,
+    pub egui_context: EguiContext,
+    pub egui_renderer: EguiRenderer,
 }
 
 impl Renderer {
@@ -287,7 +301,14 @@ impl Renderer {
             mapped_at_creation: false,
         });
 
+        let egui_renderer = EguiRenderer::new(&device, surface_format, None, 1);
+        let egui_context = EguiContext::default();
+
+        let egui_input_state = egui_winit::State::new(&window);
+
         Renderer {
+            egui_context,
+            egui_renderer,
             time_since_start_seconds: 0.,
             instances,
             camera_bind_group,
@@ -305,6 +326,7 @@ impl Renderer {
             last_render_time: None,
             time_buffer,
             atlas_bind_layout,
+            egui_input_state,
         }
     }
 
@@ -357,6 +379,9 @@ impl Renderer {
     }
 
     pub fn begin_frame<'a>(&'a mut self, atlas: &'a Atlas) -> FrameBuilder<'a> {
+        self.egui_context
+            .begin_frame(self.egui_input_state.take_egui_input(&self.window));
+        puffin::GlobalProfiler::lock().new_frame();
         FrameBuilder {
             renderer: self,
             atlas,
@@ -387,6 +412,10 @@ impl FrameBuilder<'_> {
         self.command_queue.push((sprite_idx, instance));
 
         self
+    }
+
+    pub fn draw_egui(&mut self, draw: impl FnOnce(&EguiContext)) {
+        draw(&self.renderer.egui_context)
     }
 
     pub fn optimize(self) -> Self {
@@ -445,6 +474,41 @@ impl FrameBuilder<'_> {
                 label: Some("Render Encoder"),
             });
 
+        puffin_egui::profiler_window(&renderer.egui_context);
+
+        let egui_output = renderer.egui_context.end_frame();
+        let egui_paint_job = renderer.egui_context.tessellate(egui_output.shapes);
+
+        for (id, image_delta) in egui_output.textures_delta.set {
+            renderer.egui_renderer.update_texture(
+                &renderer.device,
+                &renderer.queue,
+                id,
+                &image_delta,
+            );
+        }
+
+        for id in egui_output.textures_delta.free {
+            renderer.egui_renderer.free_texture(&id);
+        }
+
+        renderer.egui_renderer.update_buffers(
+            &renderer.device,
+            &renderer.queue,
+            &mut encoder,
+            &egui_paint_job,
+            &ScreenDescriptor {
+                pixels_per_point: 1.,
+                size_in_pixels: [renderer.config.width, renderer.config.height],
+            },
+        );
+
+        renderer.egui_input_state.handle_platform_output(
+            &renderer.window,
+            &renderer.egui_context,
+            egui_output.platform_output,
+        );
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -501,11 +565,20 @@ impl FrameBuilder<'_> {
                     0,
                     sprite_seq_begin_idx..instances.len() as u32,
                 );
-            }
+            };
 
             renderer
                 .queue
                 .write_buffer(&renderer.instances, 0, bytemuck::cast_slice(&instances));
+
+            renderer.egui_renderer.render(
+                &mut render_pass,
+                &egui_paint_job,
+                &ScreenDescriptor {
+                    pixels_per_point: renderer.egui_input_state.pixels_per_point(),
+                    size_in_pixels: [renderer.config.width, renderer.config.height],
+                },
+            );
         }
 
         renderer.queue.submit([encoder.finish()]);
