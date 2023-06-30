@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 
 use engine::{
     egui, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Material, Renderer, Tile, TileFlags, World,
+    Material, Position, Renderer, Tile, TileFlags, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -170,7 +170,7 @@ pub fn run() -> anyhow::Result<()> {
         .map(|x| x.position)
         .unwrap();
 
-    world
+    let player = world
         .grid
         .put_actor(start_tile, Actor::from_template(player));
     renderer.camera.borrow_mut().position = [start_tile.x as f32, start_tile.y as f32, 0.].into();
@@ -203,6 +203,30 @@ pub fn run() -> anyhow::Result<()> {
                         #[cfg(not(target_arch = "wasm32"))]
                         if input_handler.is_pressed(Escape) {
                             *control_flow = ControlFlow::Exit;
+                        }
+
+                        let mut player_desired_move = Position::zeros();
+
+                        if input_handler.is_pressed(Numpad8) {
+                            player_desired_move += Position::new(0, 1);
+                        }
+                        if input_handler.is_pressed(Numpad2) {
+                            player_desired_move -= Position::new(0, 1);
+                        }
+                        if input_handler.is_pressed(Numpad6) {
+                            player_desired_move += Position::new(1, 0);
+                        }
+                        if input_handler.is_pressed(Numpad4) {
+                            player_desired_move -= Position::new(1, 0);
+                        }
+
+                        if player_desired_move != Position::zeros() {
+                            let player = player.as_ref().unwrap();
+                            world.submit_action(engine::Action::MoveActor {
+                                actor_ref: player.clone(),
+                                to: player.get_data().try_valid_data().unwrap().cached_position
+                                    + player_desired_move,
+                            });
                         }
 
                         if input_handler.is_pressed(Slash) {
