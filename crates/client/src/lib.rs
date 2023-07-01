@@ -1,4 +1,4 @@
-use std::{num::NonZeroU16, rc::Rc};
+use std::{borrow::Borrow, num::NonZeroU16, rc::Rc};
 
 use content::{sculptors::DungeonSculptor, Sculptor};
 use nalgebra_glm::{Vec2, Vec3};
@@ -179,118 +179,134 @@ pub fn run() -> anyhow::Result<()> {
     let mut camera_inputs = Vec2::new(0., 0.);
     let camera_speed = 12.;
 
-    event_loop.run(move |event, _, control_flow| {
-        match event {
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == renderer.window().id() => {
-                puffin::profile_scope!("Handle Inputs");
-                if renderer
-                    .egui_input_state
-                    .on_event(&renderer.egui_context, event)
-                    .consumed
-                {
-                    return;
-                }
-
-                match event {
-                    WindowEvent::KeyboardInput { input, .. } => {
-                        input_handler.handle_input(input);
-
-                        use VirtualKeyCode::*;
-
-                        #[cfg(not(target_arch = "wasm32"))]
-                        if input_handler.is_pressed(Escape) {
-                            *control_flow = ControlFlow::Exit;
-                        }
-
-                        let mut player_desired_move = Position::zeros();
-
-                        if input_handler.is_pressed(Numpad8) {
-                            player_desired_move += Position::new(0, 1);
-                        }
-                        if input_handler.is_pressed(Numpad2) {
-                            player_desired_move -= Position::new(0, 1);
-                        }
-                        if input_handler.is_pressed(Numpad6) {
-                            player_desired_move += Position::new(1, 0);
-                        }
-                        if input_handler.is_pressed(Numpad4) {
-                            player_desired_move -= Position::new(1, 0);
-                        }
-
-                        if player_desired_move != Position::zeros() {
-                            let player = player.as_ref().unwrap();
-                            world.submit_action(engine::Action::MoveActor {
-                                actor_ref: player.clone(),
-                                to: player.get_data().try_valid_data().unwrap().cached_position
-                                    + player_desired_move,
-                            });
-                        }
-
-                        if input_handler.is_pressed(Slash) {
-                            let is_profiler_enabled = renderer.is_profiler_enabled();
-                            renderer.enable_puffin_gui.set(!is_profiler_enabled);
-                        }
-
-                        camera_inputs = input_handler.get_axial(0);
-                    }
-
-                    WindowEvent::CursorMoved { position, .. } => {
-                        cursor_pos = *position;
-                    }
-
-                    WindowEvent::Resized(physical_size) => {
-                        renderer.resize(*physical_size);
-                    }
-
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        renderer.resize(**new_inner_size);
-                    }
-
-                    _ => {}
-                }
+    event_loop.run(move |event, _, control_flow| match event {
+        Event::WindowEvent {
+            ref event,
+            window_id,
+        } if window_id == renderer.window().id() => {
+            puffin::profile_scope!("Handle Inputs");
+            if renderer
+                .egui_input_state
+                .on_event(&renderer.egui_context, event)
+                .consumed
+            {
+                return;
             }
 
-            Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
-                input_handler.flush();
+            match event {
+                WindowEvent::KeyboardInput { input, .. } => {
+                    input_handler.handle_input(input);
 
-                renderer.camera.borrow_mut().position += renderer.delta_time
-                    * camera_speed
-                    * Vec3::new(camera_inputs.x as _, camera_inputs.y as _, 0.);
-                renderer.refresh_camera();
-                let cursor_pos = renderer.window_space_to_world(&cursor_pos);
-                let cursor_scale = renderer.time_since_start_seconds.sin() as f32 * 0.1 + 1.0;
+                    use VirtualKeyCode::*;
 
-                let builder = renderer.begin_frame(&atlas);
-                let mut frame = frame_from_world(&world.grid, &atlas, builder);
-                /*frame.draw_sprite(
-                    7,
-                    Instance {
-                        size: cursor_scale,
-                        pos: cursor_pos,
-                        layer: 3,
-                        angle: 0.0,
-                        tint: [255; 3],
-                    },
-                );*/
-
-                {
-                    puffin::profile_scope!("End Frame & Present");
-                    match frame.end_frame() {
-                        Ok(_) => {}
-                        Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
-                        Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                        Err(e) => eprintln!("{:?}", e),
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if input_handler.is_pressed(Escape) {
+                        *control_flow = ControlFlow::Exit;
                     }
-                }
-            }
 
-            Event::MainEventsCleared => {
-                renderer.window().request_redraw();
+                    let mut player_desired_move = Position::zeros();
+
+                    if input_handler.is_pressed(Numpad8) {
+                        player_desired_move += Position::new(0, 1);
+                    }
+                    if input_handler.is_pressed(Numpad2) {
+                        player_desired_move -= Position::new(0, 1);
+                    }
+                    if input_handler.is_pressed(Numpad6) {
+                        player_desired_move += Position::new(1, 0);
+                    }
+                    if input_handler.is_pressed(Numpad4) {
+                        player_desired_move -= Position::new(1, 0);
+                    }
+
+                    if player_desired_move != Position::zeros() {
+                        let player = player.as_ref().unwrap();
+                        world.submit_action(engine::Action::MoveActor {
+                            actor_ref: player.clone(),
+                            to: player.get_data().try_valid_data().unwrap().cached_position
+                                + player_desired_move,
+                        });
+                    }
+
+                    if input_handler.is_pressed(Slash) {
+                        let is_profiler_enabled = renderer.is_profiler_enabled();
+                        renderer.enable_puffin_gui.set(!is_profiler_enabled);
+                    }
+
+                    camera_inputs = input_handler.get_axial(0);
+                }
+
+                WindowEvent::CursorMoved { position, .. } => {
+                    cursor_pos = *position;
+                }
+
+                WindowEvent::Resized(physical_size) => {
+                    renderer.resize(*physical_size);
+                }
+
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    renderer.resize(**new_inner_size);
+                }
+
+                _ => {}
             }
-            _ => {}
         }
+
+        Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
+            input_handler.flush();
+
+            renderer.camera.borrow_mut().position += renderer.delta_time
+                * camera_speed
+                * Vec3::new(camera_inputs.x as _, camera_inputs.y as _, 0.);
+            renderer.refresh_camera();
+            let cursor_pos = renderer.window_space_to_world(&cursor_pos);
+            let ray_scale = renderer.time_since_start_seconds.sin() as f32 * 0.1 + 1.0;
+
+            let player_pos = player
+                .as_ref()
+                .borrow()
+                .unwrap()
+                .get_data()
+                .try_valid_data()
+                .unwrap()
+                .cached_position;
+
+            let direction =
+                (cursor_pos - Vec2::new(player_pos.x as f32, player_pos.y as f32)).normalize();
+
+            let mut frame_builder = renderer.begin_frame(&atlas);
+
+            for tile in world.grid.ray_cast(player_pos, direction) {
+                let pos = Vec2::new(tile.position.x as f32, tile.position.y as f32);
+
+                frame_builder.draw_sprite(
+                    2,
+                    Instance {
+                        size: ray_scale,
+                        pos,
+                        layer: 4,
+                        angle: 0.0,
+                        tint: [255, 255, 0],
+                    },
+                );
+            }
+
+            let frame = frame_from_world(&world.grid, &atlas, frame_builder);
+
+            {
+                puffin::profile_scope!("End Frame & Present");
+                match frame.end_frame() {
+                    Ok(_) => {}
+                    Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
+                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    Err(e) => eprintln!("{:?}", e),
+                }
+            }
+        }
+
+        Event::MainEventsCleared => {
+            renderer.window().request_redraw();
+        }
+        _ => {}
     });
 }

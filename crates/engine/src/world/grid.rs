@@ -1,6 +1,7 @@
 use std::{mem::swap, rc::Rc};
 
 use hashbrown::HashMap;
+use nalgebra_glm::{vec2, Vec2};
 use puffin_egui::puffin::profile_function;
 
 use crate::{Actor, ActorHandle, ActorReference, AsPosition, Position};
@@ -23,6 +24,62 @@ fn min_max_aabb_from_rect(a: impl AsPosition, b: impl AsPosition) -> (Position, 
     }
 
     (a, b)
+}
+
+#[non_exhaustive]
+pub struct RaycastIterator<'a> {
+    pub(crate) max_distance: f32,
+    pub(crate) distance_travelled: f32,
+    pub(crate) last_sampled_tile: Vec2,
+
+    pub(crate) grid: &'a Grid,
+    pub(crate) step: Vec2,
+    pub(crate) from: Position,
+}
+
+impl<'a> RaycastIterator<'a> {
+    pub fn new(from: Position, direction: Vec2, grid: &'a Grid) -> RaycastIterator<'a> {
+        let direction = direction.normalize();
+        let step = if direction.x.abs() > direction.y.abs() {
+            vec2(direction.x.signum(), direction.y / direction.x.abs())
+        } else {
+            vec2(direction.x / direction.y.abs(), direction.y.signum())
+        };
+
+        Self {
+            from,
+            step,
+            grid,
+            max_distance: 30.,
+            distance_travelled: 0.,
+            last_sampled_tile: Vec2::zeros(),
+        }
+    }
+}
+
+impl<'a> Iterator for RaycastIterator<'a> {
+    type Item = &'a Tile;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.distance_travelled >= self.max_distance {
+            return None;
+        }
+
+        let new_sampled_tile = self.last_sampled_tile + self.step;
+
+        let sample_position = self.from
+            + Position::new(
+                new_sampled_tile.x.round() as i32,
+                new_sampled_tile.y.round() as i32,
+            );
+        match self.grid.tile_at(sample_position) {
+            Some(tile) => {
+                self.last_sampled_tile = new_sampled_tile;
+                Some(tile)
+            }
+            None => None,
+        }
+    }
 }
 
 impl Grid {
@@ -64,6 +121,10 @@ impl Grid {
                 .get(&pos)
                 .expect("Couldn't get Tile that was just put"),
         )
+    }
+
+    pub fn ray_cast(&self, from: impl AsPosition, direction: Vec2) -> RaycastIterator {
+        RaycastIterator::new(from.into(), direction, self)
     }
 
     pub fn make_tile_bordered_box(
