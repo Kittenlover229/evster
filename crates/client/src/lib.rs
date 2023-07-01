@@ -1,7 +1,8 @@
-use std::{borrow::Borrow, num::NonZeroU16, rc::Rc};
+use std::{borrow::Borrow, f32::consts::PI, num::NonZeroU16, rc::Rc};
 
 use content::{sculptors::DungeonSculptor, Sculptor};
 use nalgebra_glm::{Vec2, Vec3};
+use puffin::profile_scope;
 use winit::{
     dpi::PhysicalPosition,
     event::*,
@@ -259,36 +260,54 @@ pub fn run() -> anyhow::Result<()> {
                 * camera_speed
                 * Vec3::new(camera_inputs.x as _, camera_inputs.y as _, 0.);
             renderer.refresh_camera();
-            let cursor_pos = renderer.window_space_to_world(&cursor_pos);
             let ray_scale = renderer.time_since_start_seconds.sin() as f32 * 0.1 + 1.0;
 
-            let player_pos = player
-                .as_ref()
-                .borrow()
-                .unwrap()
-                .get_data()
-                .try_valid_data()
-                .unwrap()
-                .cached_position;
-
-            let direction =
-                (cursor_pos - Vec2::new(player_pos.x as f32, player_pos.y as f32)).normalize();
-
             let mut frame_builder = renderer.begin_frame(&atlas);
+            {
+                profile_scope!("Field Of View");
+                let player_pos = player
+                    .as_ref()
+                    .borrow()
+                    .unwrap()
+                    .get_data()
+                    .try_valid_data()
+                    .unwrap()
+                    .cached_position;
 
-            for tile in world.grid.ray_cast(player_pos, direction) {
-                let pos = Vec2::new(tile.position.x as f32, tile.position.y as f32);
+                let mut last_tiles = vec![];
 
-                frame_builder.draw_sprite(
-                    2,
-                    Instance {
-                        size: ray_scale,
-                        pos,
-                        layer: 4,
-                        angle: 0.0,
-                        tint: [255, 255, 0],
-                    },
-                );
+                const ITERATIONS: u8 = 255;
+                for i in 0..ITERATIONS {
+                    let angle = i as f32 * 2. * PI / ITERATIONS as f32;
+                    let (sin, cos) = angle.sin_cos();
+                    let direction = Vec2::new(cos, sin);
+                    match world
+                        .grid
+                        .ray_cast(player_pos, direction)
+                        .take_while(|tile| tile.flags() == TileFlags::PASSTHROUGH)
+                        .last()
+                    {
+                        Some(tile) => last_tiles.push(tile),
+                        None => {}
+                    }
+                }
+
+                let len = last_tiles.len();
+                for (i, tile) in last_tiles.into_iter().enumerate() {
+                    let pos = Vec2::new(tile.position.x as f32, tile.position.y as f32);
+                    let di = i as f32 / (len as f32 - 1.);
+
+                    frame_builder.draw_sprite(
+                        2,
+                        Instance {
+                            size: ray_scale,
+                            pos,
+                            layer: 4,
+                            angle: 0.0,
+                            tint: [(255. * di) as u8, (255. * (1. - di)) as u8, 0],
+                        },
+                    );
+                }
             }
 
             let frame = frame_from_world(&world.grid, &atlas, frame_builder);
