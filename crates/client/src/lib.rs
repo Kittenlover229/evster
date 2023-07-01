@@ -185,7 +185,6 @@ pub fn run() -> anyhow::Result<()> {
             ref event,
             window_id,
         } if window_id == renderer.window().id() => {
-            puffin::profile_scope!("Handle Inputs");
             if renderer
                 .egui_input_state
                 .on_event(&renderer.egui_context, event)
