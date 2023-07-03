@@ -65,14 +65,17 @@ impl<'a> Iterator for RaycastIterator<'a> {
             return None;
         }
 
-        let new_sampled_tile = self.last_sampled_tile + self.step;
-
         let sample_position = self.from
             + Position::new(
-                new_sampled_tile.x.round() as i32,
-                new_sampled_tile.y.round() as i32,
+                self.last_sampled_tile.x.round() as i32,
+                self.last_sampled_tile.y.round() as i32,
             );
-        match self.grid.tile_at(sample_position) {
+
+        let tile = self.grid.tile_at(sample_position);
+
+        let new_sampled_tile = self.last_sampled_tile + self.step;
+
+        match tile {
             Some(tile) => {
                 self.last_sampled_tile = new_sampled_tile;
                 Some(tile)
@@ -121,6 +124,20 @@ impl Grid {
                 .get(&pos)
                 .expect("Couldn't get Tile that was just put"),
         )
+    }
+
+    pub fn los_check(&self, from: impl AsPosition, to: impl AsPosition) -> Option<&Tile> {
+        let (from, to): (Position, Position) = (from.into(), to.into());
+
+        if from == to {
+            return self.tile_at(from)
+        }
+
+        let direction = Vec2::new((to.x - from.x) as f32, (to.y - from.y) as f32).normalize();
+
+        self.ray_cast(from, direction)
+            .take_while(|tile| tile.flags().intersects(TileFlags::PASSTHROUGH))
+            .last()
     }
 
     pub fn ray_cast(&self, from: impl AsPosition, direction: Vec2) -> RaycastIterator {
@@ -248,8 +265,10 @@ impl Grid {
 bitflags::bitflags! {
     #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
     pub struct TileFlags: u16 {
-        const PASSTHROUGH   = 0b000000;
-        const SOLID         = 0b000001;
+        const PASSTHROUGH       = 0b000001;
+        const SIGHTBLOCKER      = 0b000010;
+
+        const SOLID             = 0b000010;
     }
 }
 
@@ -292,5 +311,9 @@ impl Tile {
 
     pub fn flags(&self) -> TileFlags {
         self.material.flags
+    }
+
+    pub fn world_position(&self) -> Vec2 {
+        [self.position.x as f32, self.position.y as f32].into()
     }
 }

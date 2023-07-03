@@ -1,8 +1,7 @@
-use std::{borrow::Borrow, f32::consts::PI, num::NonZeroU16, rc::Rc};
+use std::{borrow::Borrow, num::NonZeroU16, rc::Rc};
 
 use content::{sculptors::DungeonSculptor, Sculptor};
 use nalgebra_glm::{Vec2, Vec3};
-use puffin::profile_scope;
 use winit::{
     dpi::PhysicalPosition,
     event::*,
@@ -14,7 +13,7 @@ use winit::{
 use wasm_bindgen::prelude::*;
 
 use engine::{
-    egui, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
+    Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
     Material, Position, Renderer, Tile, TileFlags, World,
 };
 
@@ -174,6 +173,7 @@ pub fn run() -> anyhow::Result<()> {
     let player = world
         .grid
         .put_actor(start_tile, Actor::from_template(player));
+
     renderer.camera.borrow_mut().position = [start_tile.x as f32, start_tile.y as f32, 0.].into();
 
     let mut cursor_pos = PhysicalPosition::default();
@@ -255,59 +255,43 @@ pub fn run() -> anyhow::Result<()> {
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
             input_handler.flush();
 
+            let cursor_pos = renderer.window_space_to_world(&cursor_pos);
             renderer.camera.borrow_mut().position += renderer.delta_time
                 * camera_speed
                 * Vec3::new(camera_inputs.x as _, camera_inputs.y as _, 0.);
             renderer.refresh_camera();
-            let ray_scale = renderer.time_since_start_seconds.sin() as f32 * 0.1 + 1.0;
 
             let mut frame_builder = renderer.begin_frame(&atlas);
-            {
-                profile_scope!("Field Of View");
-                let player_pos = player
-                    .as_ref()
-                    .borrow()
-                    .unwrap()
-                    .get_data()
-                    .try_valid_data()
-                    .unwrap()
-                    .cached_position;
 
-                let mut last_tiles = vec![];
+            let player_pos = player
+                .as_ref()
+                .borrow()
+                .unwrap()
+                .get_data()
+                .try_valid_data()
+                .unwrap()
+                .cached_position;
 
-                const ITERATIONS: u8 = 255;
-                for i in 0..ITERATIONS {
-                    let angle = i as f32 * 2. * PI / ITERATIONS as f32;
-                    let (sin, cos) = angle.sin_cos();
-                    let direction = Vec2::new(cos, sin);
-                    match world
-                        .grid
-                        .ray_cast(player_pos, direction)
-                        .take_while(|tile| tile.flags() == TileFlags::PASSTHROUGH)
-                        .last()
-                    {
-                        Some(tile) => last_tiles.push(tile),
-                        None => {}
-                    }
-                }
+            let blocker_tile = world.grid.los_check(
+                player_pos,
+                Position::new(cursor_pos.x.round() as i32, cursor_pos.y.round() as i32),
+            );
 
-                let len = last_tiles.len();
-                for (i, tile) in last_tiles.into_iter().enumerate() {
-                    let pos = Vec2::new(tile.position.x as f32, tile.position.y as f32);
-                    let di = i as f32 / (len as f32 - 1.);
+            let pos = match blocker_tile {
+                Some(tile) => tile.world_position(),
+                None => cursor_pos,
+            };
 
-                    frame_builder.draw_sprite(
-                        2,
-                        Instance {
-                            size: ray_scale,
-                            pos,
-                            layer: 4,
-                            angle: 0.0,
-                            tint: [(255. * di) as u8, (255. * (1. - di)) as u8, 0],
-                        },
-                    );
-                }
-            }
+            frame_builder.draw_sprite(
+                4,
+                Instance {
+                    size: 1.0,
+                    pos,
+                    layer: 1,
+                    angle: 0.0,
+                    tint: [255, 0, 0],
+                },
+            );
 
             let frame = frame_from_world(&world.grid, &atlas, frame_builder);
 
@@ -325,6 +309,7 @@ pub fn run() -> anyhow::Result<()> {
         Event::MainEventsCleared => {
             renderer.window().request_redraw();
         }
+
         _ => {}
     });
 }
