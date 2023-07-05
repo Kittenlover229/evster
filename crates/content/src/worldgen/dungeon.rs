@@ -94,7 +94,7 @@ impl Sculptor for DungeonSculptor {
 
             rooms.push(new_room);
         }
-        
+
         let edges = {
             use delaunator::{triangulate, Point};
             let centroids: Vec<_> = rooms
@@ -110,18 +110,19 @@ impl Sculptor for DungeonSculptor {
             let mut edges: Vec<_> = vec![];
             let triangles = triangulate(&centroids[..]).triangles;
             for [a, b] in triangles.array_windows::<2>() {
-                    let (a, b) = (*a, *b);
-                    let ac = rooms[a].centroid();
-                    let bc = rooms[b].centroid();
-                    let ac = vec2(ac.x as f32, ac.y as f32);
-                    let bc = vec2(bc.x as f32, bc.y as f32);
+                let (a, b) = (*a, *b);
+                let ac = rooms[a].centroid();
+                let bc = rooms[b].centroid();
+                let ac = vec2(ac.x as f32, ac.y as f32);
+                let bc = vec2(bc.x as f32, bc.y as f32);
 
-                    edges.push((a, b, distance2(&ac, &bc) as i32))
+                edges.push((a, b, distance2(&ac, &bc) as i32))
             }
+
             edges
         };
 
-        let corridors = {
+        let mut corridors = {
             profiling::scope!("Kruskal's Algorithm");
             let mut corridors = vec![];
             use pathfinding::undirected::kruskal::kruskal_indices;
@@ -141,6 +142,27 @@ impl Sculptor for DungeonSculptor {
             }
             corridors
         };
+
+        for _ in 0..self.rng.gen_range(0..=4) {
+            let a = self.rng.gen_range(0..rooms.len());
+            let b = self.rng.gen_range(0..rooms.len());
+            if a == b {
+                continue;
+            }
+
+            let a = rooms[a].centroid();
+            let b = rooms[b].centroid();
+
+            let intersection: Position = if self.rng.gen_bool(0.5) {
+                [a.x, b.y]
+            } else {
+                [b.x, a.y]
+            }
+            .into();
+
+            corridors.push((a, intersection));
+            corridors.push((b, intersection));
+        }
 
         for (from, to) in corridors {
             grid.make_tile_box(from + Position::new(1, 1), to, self.floor.clone());
