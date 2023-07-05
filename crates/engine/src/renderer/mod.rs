@@ -578,7 +578,7 @@ impl FrameBuilder<'_> {
                 instances.push(InstanceRaw::from(&instance));
             }
 
-            if instances.len() != 0 {
+            if !instances.is_empty() {
                 render_pass.draw_indexed(
                     atlas.sprites[last_sprite_idx as usize].indices(),
                     0,

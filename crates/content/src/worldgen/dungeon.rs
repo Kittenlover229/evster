@@ -21,7 +21,7 @@ impl Room {
         let (xmin1, xmin2) = (self.min.x, rhs.min.x);
         let (ymin1, ymin2) = (self.min.y, rhs.min.y);
 
-        return (xmax1 >= xmin2 && xmax2 >= xmin1) && (ymax1 >= ymin2 && ymax2 >= ymin1);
+        xmax1 >= xmin2 && xmax2 >= xmin1 && ymax1 >= ymin2 && ymax2 >= ymin1
     }
 }
 

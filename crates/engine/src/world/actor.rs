@@ -44,7 +44,7 @@ impl Actor {
     }
 }
 
-impl<'a> From<Rc<ActorTemplate>> for Actor {
+impl From<Rc<ActorTemplate>> for Actor {
     fn from(template: Rc<ActorTemplate>) -> Self {
         Self { template }
     }
@@ -207,7 +207,7 @@ impl Clone for ActorReference {
         let (refs, _) = unsafe { &ActorData::from_ptr(self.heap).weak_keep_alive };
         refs.set(refs.get() + 1);
         Self {
-            heap: self.heap.clone(),
+            heap: self.heap,
         }
     }
 }

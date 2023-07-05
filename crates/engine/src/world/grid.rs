@@ -224,8 +224,7 @@ impl Grid {
     ) -> Option<(Option<ActorReference>, ActorReference)> {
         let mut actor = self
             .tile_at_mut(from)
-            .map(|x| x.occupier.take())
-            .flatten()?;
+            .and_then(|x| x.occupier.take())?;
         let to = to.into();
 
         let destination = self.tile_at_mut(to).map(|x| &mut x.occupier)?;
