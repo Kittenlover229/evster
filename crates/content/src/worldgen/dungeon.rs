@@ -109,15 +109,14 @@ impl Sculptor for DungeonSculptor {
             profiling::scope!("Triangulation");
             let mut edges: Vec<_> = vec![];
             let triangles = triangulate(&centroids[..]).triangles;
-            for edge in triangles.windows(2) {
-                if let [a, b] = *edge {
+            for [a, b] in triangles.array_windows::<2>() {
+                    let (a, b) = (*a, *b);
                     let ac = rooms[a].centroid();
                     let bc = rooms[b].centroid();
                     let ac = vec2(ac.x as f32, ac.y as f32);
                     let bc = vec2(bc.x as f32, bc.y as f32);
 
                     edges.push((a, b, distance2(&ac, &bc) as i32))
-                }
             }
             edges
         };
