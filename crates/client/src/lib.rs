@@ -26,9 +26,7 @@ pub fn frame_from_world<'a>(
     for (
         pos,
         Tile {
-            occupier,
-            material: descriptor,
-            ..
+            occupier, material, ..
         },
     ) in &grid.grid
     {
@@ -36,9 +34,14 @@ pub fn frame_from_world<'a>(
             continue;
         }
 
-        if !grid.los_check(fov_emitter, *pos, Some(8.)) {
-            continue;
-        }
+        let (resource_name, is_obscured) = match (
+            &material.obscured_resource_name,
+            grid.los_check(fov_emitter, *pos, Some(8.)),
+        ) {
+            (Some(name), is_obscured) => (name, !is_obscured),
+            (None, true) => (&material.resource_name, false),
+            (None, false) => continue,
+        };
 
         if let Some(actor) = occupier {
             let actor_sprite_idx = atlas
@@ -57,9 +60,7 @@ pub fn frame_from_world<'a>(
             );
         }
 
-        let tile_sprite_idx = atlas
-            .resolve_resource(&descriptor.as_ref().resource_name)
-            .map_or(0, |x| x.0);
+        let tile_sprite_idx = atlas.resolve_resource(resource_name).map_or(0, |x| x.0);
 
         frame_builder.draw_sprite(
             tile_sprite_idx,
@@ -68,11 +69,7 @@ pub fn frame_from_world<'a>(
                 pos: [pos.x as f32, pos.y as f32].into(),
                 layer: 1,
                 angle: 0.0,
-                tint: if occupier.is_some() {
-                    [50; 3]
-                } else {
-                    [100; 3]
-                },
+                tint: if is_obscured { [25; 3] } else { [75; 3] },
             },
         );
     }
@@ -153,8 +150,15 @@ pub fn run() -> anyhow::Result<()> {
     let player = ActorTemplate::new("Player", "creature.player");
     let player = Rc::new(player);
 
-    let floor = Material::new("Basic Floor", "tile.floor", TileFlags::PASSTHROUGH);
-    let wall = Material::new("Wall", "tile.wall", TileFlags::SOLID);
+    let floor = Material::new(
+        "Basic Floor",
+        "tile.floor",
+        None::<String>,
+        TileFlags::PASSTHROUGH,
+    );
+
+    let wall = Material::new("Wall", "tile.wall", Some("tile.wall"), TileFlags::SOLID);
+
     let mut sculptor = DungeonSculptor::new(
         NonZeroU16::new(50).unwrap(),
         ([4, 4], [10, 10]),

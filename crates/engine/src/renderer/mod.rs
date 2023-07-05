@@ -1,7 +1,5 @@
 use std::cell::{Cell, OnceCell, RefCell};
 
-use crate::AsPosition;
-
 use self::egui::{Context as EguiContext, Renderer as EguiRenderer, Ui as EguiUI};
 use bytemuck::{Pod, Zeroable};
 use egui_wgpu::renderer::ScreenDescriptor;
