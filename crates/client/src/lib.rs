@@ -18,9 +18,10 @@ use engine::{
 };
 
 pub fn frame_from_world<'a>(
-    world: &Grid,
+    grid: &Grid,
     atlas: &'a Atlas,
     mut builder: FrameBuilder<'a>,
+    fov_emitter: Position,
 ) -> FrameBuilder<'a> {
     for (
         pos,
@@ -29,8 +30,12 @@ pub fn frame_from_world<'a>(
             material: descriptor,
             ..
         },
-    ) in &world.grid
+    ) in &grid.grid
     {
+        if !grid.los_check(fov_emitter, *pos) {
+            continue;
+        }
+
         if let Some(actor) = occupier {
             let actor_sprite_idx = atlas
                 .resolve_resource(actor.get_data().actor().template().resource_name())
@@ -279,7 +284,7 @@ pub fn run() -> anyhow::Result<()> {
                 .unwrap()
                 .cached_position;
 
-            let frame = frame_from_world(&world.grid, &atlas, frame_builder);
+            let frame = frame_from_world(&world.grid, &atlas, frame_builder, player_pos);
 
             {
                 puffin::profile_scope!("End Frame & Present");

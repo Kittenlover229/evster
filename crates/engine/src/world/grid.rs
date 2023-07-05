@@ -126,18 +126,26 @@ impl Grid {
         )
     }
 
-    pub fn los_check(&self, from: impl AsPosition, to: impl AsPosition) -> Option<&Tile> {
+    pub fn los_check(&self, from: impl AsPosition, to: impl AsPosition) -> bool {
         let (from, to): (Position, Position) = (from.into(), to.into());
 
         if from == to {
-            return self.tile_at(from)
+            return true;
         }
 
         let direction = Vec2::new((to.x - from.x) as f32, (to.y - from.y) as f32).normalize();
 
-        self.ray_cast(from, direction)
-            .take_while(|tile| tile.flags().intersects(TileFlags::PASSTHROUGH))
-            .last()
+        for tile in self.ray_cast(from, direction) {
+            if tile.position == to {
+                return true
+            }
+
+            if tile.flags() == TileFlags::SOLID {
+                return false;
+            }
+        }
+        
+        false
     }
 
     pub fn ray_cast(&self, from: impl AsPosition, direction: Vec2) -> RaycastIterator {
@@ -222,9 +230,7 @@ impl Grid {
         from: impl AsPosition,
         to: impl AsPosition,
     ) -> Option<(Option<ActorReference>, ActorReference)> {
-        let mut actor = self
-            .tile_at_mut(from)
-            .and_then(|x| x.occupier.take())?;
+        let mut actor = self.tile_at_mut(from).and_then(|x| x.occupier.take())?;
         let to = to.into();
 
         let destination = self.tile_at_mut(to).map(|x| &mut x.occupier)?;
