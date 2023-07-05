@@ -20,7 +20,7 @@ use engine::{
 pub fn frame_from_world<'a>(
     grid: &Grid,
     atlas: &'a Atlas,
-    mut builder: FrameBuilder<'a>,
+    mut frame_builder: FrameBuilder<'a>,
     fov_emitter: Position,
 ) -> FrameBuilder<'a> {
     for (
@@ -32,7 +32,11 @@ pub fn frame_from_world<'a>(
         },
     ) in &grid.grid
     {
-        if !grid.los_check(fov_emitter, *pos) {
+        if frame_builder.is_culled([pos.x as f32, pos.y as f32].into()) {
+            continue;
+        }
+
+        if !grid.los_check(fov_emitter, *pos, Some(8.)) {
             continue;
         }
 
@@ -41,7 +45,7 @@ pub fn frame_from_world<'a>(
                 .resolve_resource(actor.get_data().actor().template().resource_name())
                 .map_or(0, |x| x.0);
 
-            builder.draw_sprite(
+            frame_builder.draw_sprite(
                 actor_sprite_idx,
                 Instance {
                     size: 1.0,
@@ -57,7 +61,7 @@ pub fn frame_from_world<'a>(
             .resolve_resource(&descriptor.as_ref().resource_name)
             .map_or(0, |x| x.0);
 
-        builder.draw_sprite(
+        frame_builder.draw_sprite(
             tile_sprite_idx,
             Instance {
                 size: 1.0,
@@ -73,7 +77,7 @@ pub fn frame_from_world<'a>(
         );
     }
 
-    builder
+    frame_builder
 }
 
 // Palette:

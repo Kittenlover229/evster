@@ -1,5 +1,7 @@
 use std::cell::{Cell, OnceCell, RefCell};
 
+use crate::AsPosition;
+
 use self::egui::{Context as EguiContext, Renderer as EguiRenderer, Ui as EguiUI};
 use bytemuck::{Pod, Zeroable};
 use egui_wgpu::renderer::ScreenDescriptor;
@@ -429,15 +431,17 @@ pub struct FrameBuilder<'a> {
 }
 
 impl FrameBuilder<'_> {
-    pub fn draw_sprite(&mut self, sprite_idx: u32, instance: Instance) -> &mut Self {
+    pub fn is_culled(&mut self, position: Vec2) -> bool {
         let (cull_min, cull_max) = self.renderer.camera.borrow().camera_culling_aabb();
 
-        let centroid = instance.pos;
-        if !(centroid.x > cull_min.x
-            && centroid.x < cull_max.x
-            && centroid.y > cull_min.y
-            && centroid.y < cull_max.y)
-        {
+        position.x < cull_min.x
+            || position.x > cull_max.x
+            || position.y > cull_max.y
+            || position.y < cull_min.y
+    }
+
+    pub fn draw_sprite(&mut self, sprite_idx: u32, instance: Instance) -> &mut Self {
+        if self.is_culled(instance.pos) {
             return self;
         }
 

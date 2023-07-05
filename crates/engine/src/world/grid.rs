@@ -38,7 +38,12 @@ pub struct RaycastIterator<'a> {
 }
 
 impl<'a> RaycastIterator<'a> {
-    pub fn new(from: Position, direction: Vec2, grid: &'a Grid) -> RaycastIterator<'a> {
+    pub fn new(
+        from: Position,
+        direction: Vec2,
+        max_distance: f32,
+        grid: &'a Grid,
+    ) -> RaycastIterator<'a> {
         let direction = direction.normalize();
         let step = if direction.x.abs() > direction.y.abs() {
             vec2(direction.x.signum(), direction.y / direction.x.abs())
@@ -50,7 +55,7 @@ impl<'a> RaycastIterator<'a> {
             from,
             step,
             grid,
-            max_distance: 30.,
+            max_distance,
             distance_travelled: 0.,
             last_sampled_tile: Vec2::zeros(),
         }
@@ -78,6 +83,7 @@ impl<'a> Iterator for RaycastIterator<'a> {
         match tile {
             Some(tile) => {
                 self.last_sampled_tile = new_sampled_tile;
+                self.distance_travelled += self.step.magnitude();
                 Some(tile)
             }
             None => None,
@@ -126,7 +132,12 @@ impl Grid {
         )
     }
 
-    pub fn los_check(&self, from: impl AsPosition, to: impl AsPosition) -> bool {
+    pub fn los_check(
+        &self,
+        from: impl AsPosition,
+        to: impl AsPosition,
+        max_distance: Option<f32>,
+    ) -> bool {
         let (from, to): (Position, Position) = (from.into(), to.into());
 
         if from == to {
@@ -135,21 +146,32 @@ impl Grid {
 
         let direction = Vec2::new((to.x - from.x) as f32, (to.y - from.y) as f32).normalize();
 
-        for tile in self.ray_cast(from, direction) {
+        let raycast = self.ray_cast(from, direction, max_distance);
+        for tile in raycast {
             if tile.position == to {
-                return true
+                return true;
             }
 
             if tile.flags() == TileFlags::SOLID {
                 return false;
             }
         }
-        
+
         false
     }
 
-    pub fn ray_cast(&self, from: impl AsPosition, direction: Vec2) -> RaycastIterator {
-        RaycastIterator::new(from.into(), direction, self)
+    pub fn ray_cast(
+        &self,
+        from: impl AsPosition,
+        direction: Vec2,
+        max_distance: Option<f32>,
+    ) -> RaycastIterator {
+        RaycastIterator::new(
+            from.into(),
+            direction,
+            max_distance.unwrap_or(std::f32::INFINITY),
+            self,
+        )
     }
 
     pub fn make_tile_bordered_box(
