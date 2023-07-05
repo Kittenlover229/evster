@@ -99,6 +99,7 @@ pub fn run() -> anyhow::Result<()> {
         .with_title("Evster")
         .build(&event_loop)
         .unwrap();
+
     let mut input_handler = InputHandler::new_with_filter(
         {
             use VirtualKeyCode::*;
@@ -263,6 +264,12 @@ pub fn run() -> anyhow::Result<()> {
 
             let mut frame_builder = renderer.begin_frame(&atlas);
 
+            frame_builder.draw_debug(move |ui| {
+                let cursor_x = cursor_pos.x.round() as i32;
+                let cursor_y = cursor_pos.y.round() as i32;
+                ui.label(format!("World Cursor Position: ({cursor_x}, {cursor_y})"));
+            });
+
             let player_pos = player
                 .as_ref()
                 .borrow()
@@ -271,27 +278,6 @@ pub fn run() -> anyhow::Result<()> {
                 .try_valid_data()
                 .unwrap()
                 .cached_position;
-
-            let blocker_tile = world.grid.los_check(
-                player_pos,
-                Position::new(cursor_pos.x.round() as i32, cursor_pos.y.round() as i32),
-            );
-
-            let pos = match blocker_tile {
-                Some(tile) => tile.world_position(),
-                None => cursor_pos,
-            };
-
-            frame_builder.draw_sprite(
-                4,
-                Instance {
-                    size: 1.0,
-                    pos,
-                    layer: 1,
-                    angle: 0.0,
-                    tint: [255, 0, 0],
-                },
-            );
 
             let frame = frame_from_world(&world.grid, &atlas, frame_builder);
 

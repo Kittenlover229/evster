@@ -1,8 +1,6 @@
-use std::borrow::Borrow;
 use std::cell::{Cell, OnceCell, RefCell};
 
-use self::egui::{Context as EguiContext, Renderer as EguiRenderer};
-use ::egui::RawInput;
+use self::egui::{Context as EguiContext, Renderer as EguiRenderer, Ui as EguiUI};
 use bytemuck::{Pod, Zeroable};
 use egui_wgpu::renderer::ScreenDescriptor;
 use glm::{vec4, Mat4};
@@ -387,6 +385,7 @@ impl Renderer {
             .begin_frame(self.egui_input_state.take_egui_input(&self.window));
         puffin::GlobalProfiler::lock().new_frame();
         FrameBuilder {
+            debug_draws: vec![],
             renderer: self,
             atlas,
             command_queue: vec![],
@@ -426,6 +425,7 @@ pub struct FrameBuilder<'a> {
     renderer: &'a mut Renderer,
     atlas: &'a Atlas,
     command_queue: Vec<(u32, Instance)>,
+    debug_draws: Vec<Box<dyn FnOnce(&mut EguiUI)>>,
 }
 
 impl FrameBuilder<'_> {
@@ -448,6 +448,10 @@ impl FrameBuilder<'_> {
 
     pub fn draw_egui(&mut self, draw: impl FnOnce(&EguiContext)) {
         draw(&self.renderer.egui_context)
+    }
+
+    pub fn draw_debug(&mut self, draw: impl FnOnce(&mut EguiUI) + 'static) {
+        self.debug_draws.push(Box::new(draw));
     }
 
     pub fn optimize(self) -> Self {
@@ -475,6 +479,8 @@ impl FrameBuilder<'_> {
             renderer,
             command_queue,
             atlas,
+            debug_draws,
+            ..
         } = self;
 
         renderer.tick_timers();
@@ -493,6 +499,12 @@ impl FrameBuilder<'_> {
         if renderer.is_profiler_enabled() {
             puffin_egui::profiler_window(&renderer.egui_context);
         }
+
+        egui::Window::new("Debug").show(&renderer.egui_context, |ui| {
+            for debug_draw in debug_draws {
+                debug_draw(ui);
+            }
+        });
 
         let egui_output = renderer.egui_context.end_frame();
         let egui_paint_job = renderer.egui_context.tessellate(egui_output.shapes);
