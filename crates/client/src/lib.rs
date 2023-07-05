@@ -192,6 +192,7 @@ pub fn run() -> anyhow::Result<()> {
 
     let mut cursor_pos = PhysicalPosition::default();
     let mut camera_inputs = Vec2::new(0., 0.);
+    let mut camera_locked = false;
     let camera_speed = 12.;
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -242,12 +243,32 @@ pub fn run() -> anyhow::Result<()> {
                         });
                     }
 
+                    if camera_locked {
+                        let player_pos = player
+                            .as_ref()
+                            .borrow()
+                            .unwrap()
+                            .get_data()
+                            .try_valid_data()
+                            .unwrap()
+                            .cached_position;
+
+                        renderer.camera.borrow_mut().position =
+                            [player_pos.x as f32, player_pos.y as f32, 0.].into();
+                    }
+
                     if input_handler.is_pressed(Slash) {
                         let is_profiler_enabled = renderer.is_profiler_enabled();
                         renderer.enable_puffin_gui.set(!is_profiler_enabled);
                     }
 
-                    camera_inputs = input_handler.get_axial(0);
+                    if input_handler.is_pressed(Numpad5) {
+                        camera_locked = !camera_locked;
+                    }
+
+                    if !camera_locked {
+                        camera_inputs = input_handler.get_axial(0);
+                    }
                 }
 
                 WindowEvent::CursorMoved { position, .. } => {
