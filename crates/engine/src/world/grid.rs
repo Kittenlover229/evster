@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use hashbrown::HashMap;
 use nalgebra_glm::{vec2, Vec2};
 use puffin_egui::puffin::profile_function;
@@ -11,7 +13,8 @@ use crate::{
 #[non_exhaustive]
 pub struct Grid {
     pub size: Position,
-    pub grid: hashbrown::HashMap<Position, Tile>,
+    pub tiles: hashbrown::HashMap<Position, Tile>,
+    pub discovered_tiles: RefCell<hashbrown::HashSet<Position>>,
 }
 
 impl Grid {
@@ -21,16 +24,25 @@ impl Grid {
 
         Self {
             size: [width as i32, height as i32].into(),
-            grid,
+            tiles: grid,
+            discovered_tiles: Default::default(),
         }
     }
 
+    pub fn mark_visible(&self, position: impl AsPosition) {
+        self.discovered_tiles.borrow_mut().insert(position.into());
+    }
+
+    pub fn is_visible(&self, position: impl AsPosition) -> bool {
+        self.discovered_tiles.borrow().contains(&position.into())
+    }
+
     pub fn get_tile_mut(&mut self, position: impl AsPosition) -> Option<&mut Tile> {
-        self.grid.get_mut(&position.into())
+        self.tiles.get_mut(&position.into())
     }
 
     pub fn get_tile(&self, position: impl AsPosition) -> Option<&Tile> {
-        self.grid.get(&position.into())
+        self.tiles.get(&position.into())
     }
 
     pub fn make_tile_at(
@@ -39,7 +51,7 @@ impl Grid {
         material: MaterialHandle,
     ) -> (Option<Tile>, &Tile) {
         let pos = position.into();
-        let displaced = self.grid.insert(
+        let displaced = self.tiles.insert(
             pos,
             Tile {
                 position: pos,
@@ -49,7 +61,7 @@ impl Grid {
         );
         (
             displaced,
-            self.grid
+            self.tiles
                 .get(&pos)
                 .expect("Couldn't get Tile that was just put"),
         )
@@ -129,7 +141,7 @@ impl Grid {
         let at = at.into();
         [[0, 1], [1, 0], [0, -1], [-1, 0]]
             .map(Position::from)
-            .map(|pos| (at + pos, self.grid.get(&(at + pos))))
+            .map(|pos| (at + pos, self.tiles.get(&(at + pos))))
     }
 
     pub fn tile_moore_neighbours(&self, at: impl AsPosition) -> [(Position, Option<&Tile>); 8] {
@@ -146,7 +158,7 @@ impl Grid {
             [-1, 1],
         ]
         .map(Position::from)
-        .map(|pos| (at + pos, self.grid.get(&(at + pos))))
+        .map(|pos| (at + pos, self.tiles.get(&(at + pos))))
     }
 
     pub fn make_tile_box(

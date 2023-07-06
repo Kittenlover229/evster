@@ -159,7 +159,7 @@ impl Sculptor for DungeonSculptor {
             let mut walls_to_insert = vec![];
             {
                 profiling::scope!("Locating Walls");
-                for tile in grid.grid.values() {
+                for tile in grid.tiles.values() {
                     if tile.material == self.floor {
                         for (pos, neighbour) in grid.tile_moore_neighbours(tile.position) {
                             match neighbour {

@@ -26,7 +26,7 @@ pub fn frame_from_world<'a>(
         Tile {
             occupier, material, ..
         },
-    ) in &grid.grid
+    ) in &grid.tiles
     {
         if frame_builder.is_culled(pos_to_vec2(*pos)) {
             continue;
@@ -40,6 +40,17 @@ pub fn frame_from_world<'a>(
             (None, true) => (&material.resource_name, false),
             (None, false) => continue,
         };
+
+        if !is_obscured {
+            grid.mark_visible(*pos);
+            for (neighbour, _) in grid.tile_neumann_neighbours(*pos) {
+                grid.mark_visible(neighbour);
+            }
+        }
+
+        if !grid.is_visible(*pos) {
+            continue;
+        }
 
         if let Some(actor) = occupier {
             let actor_sprite_idx = atlas
@@ -176,7 +187,7 @@ pub fn run() -> anyhow::Result<()> {
     sculptor.sculpt_all(&mut world.grid);
     let start_tile = world
         .grid
-        .grid
+        .tiles
         .values()
         .find(|x| x.is_walkable())
         .map(|x| x.position)
