@@ -25,11 +25,6 @@ impl World {
             None => return false,
         };
 
-        dbg!({
-            let t = self.grid.get_tile(destination).unwrap();
-            (t, t.is_walkable())
-        });
-
         if self
             .grid
             .get_tile(destination)
