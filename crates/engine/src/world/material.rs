@@ -4,6 +4,7 @@ pub type MaterialHandle = Rc<Material>;
 
 bitflags::bitflags! {
     #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+    #[repr(C)]
     pub struct MaterialFlags: u16 {
         const PASSTHROUGH       = 0b000001;
         const SIGHTBLOCKER      = 0b000010;

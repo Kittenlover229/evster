@@ -227,11 +227,11 @@ impl Tile {
     }
 
     pub fn is_sight_blocker(&self) -> bool {
-        self.material.flags.intersects(MaterialFlags::SIGHTBLOCKER)
+        self.material.flags == MaterialFlags::SIGHTBLOCKER
     }
 
     pub fn is_walkable(&self) -> bool {
-        self.material.flags.intersects(MaterialFlags::PASSTHROUGH)
+        self.material.flags == MaterialFlags::PASSTHROUGH && !self.is_occupied()
     }
 
     pub fn world_position(&self) -> Vec2 {
