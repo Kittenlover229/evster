@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 
 use engine::{
     Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Material, Position, Renderer, Tile, TileFlags, World,
+    Material, MaterialFlags, Position, Renderer, Tile, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -154,10 +154,10 @@ pub fn run() -> anyhow::Result<()> {
         "Basic Floor",
         "tile.floor",
         None::<String>,
-        TileFlags::PASSTHROUGH,
+        MaterialFlags::PASSTHROUGH,
     );
 
-    let wall = Material::new("Wall", "tile.wall", Some("tile.wall"), TileFlags::SOLID);
+    let wall = Material::new("Wall", "tile.wall", Some("tile.wall"), MaterialFlags::SOLID);
 
     let mut sculptor = DungeonSculptor::new(
         NonZeroU16::new(50).unwrap(),
@@ -180,7 +180,7 @@ pub fn run() -> anyhow::Result<()> {
         .grid
         .grid
         .values()
-        .find(|x| x.flags() == TileFlags::PASSTHROUGH)
+        .find(|x| x.is_walkable())
         .map(|x| x.position)
         .unwrap();
 

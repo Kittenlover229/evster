@@ -1,10 +1,12 @@
-use std::{mem::swap, rc::Rc};
+use std::mem::swap;
 
 use hashbrown::HashMap;
 use nalgebra_glm::{vec2, Vec2};
 use puffin_egui::puffin::profile_function;
 
-use crate::{Actor, ActorHandle, ActorReference, AsPosition, Position};
+use crate::{
+    Actor, ActorHandle, ActorReference, AsPosition, MaterialFlags, MaterialHandle, Position,
+};
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -24,71 +26,6 @@ fn min_max_aabb_from_rect(a: impl AsPosition, b: impl AsPosition) -> (Position, 
     }
 
     (a, b)
-}
-
-#[non_exhaustive]
-pub struct RaycastIterator<'a> {
-    pub(crate) max_distance: f32,
-    pub(crate) distance_travelled: f32,
-    pub(crate) last_sampled_tile: Vec2,
-
-    pub(crate) grid: &'a Grid,
-    pub(crate) step: Vec2,
-    pub(crate) from: Position,
-}
-
-impl<'a> RaycastIterator<'a> {
-    pub fn new(
-        from: Position,
-        direction: Vec2,
-        max_distance: f32,
-        grid: &'a Grid,
-    ) -> RaycastIterator<'a> {
-        let direction = direction.normalize();
-        let step = if direction.x.abs() > direction.y.abs() {
-            vec2(direction.x.signum(), direction.y / direction.x.abs())
-        } else {
-            vec2(direction.x / direction.y.abs(), direction.y.signum())
-        };
-
-        Self {
-            from,
-            step,
-            grid,
-            max_distance,
-            distance_travelled: 0.,
-            last_sampled_tile: Vec2::zeros(),
-        }
-    }
-}
-
-impl<'a> Iterator for RaycastIterator<'a> {
-    type Item = &'a Tile;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.distance_travelled >= self.max_distance {
-            return None;
-        }
-
-        let sample_position = self.from
-            + Position::new(
-                self.last_sampled_tile.x.round() as i32,
-                self.last_sampled_tile.y.round() as i32,
-            );
-
-        let tile = self.grid.tile_at(sample_position);
-
-        let new_sampled_tile = self.last_sampled_tile + self.step;
-
-        match tile {
-            Some(tile) => {
-                self.last_sampled_tile = new_sampled_tile;
-                self.distance_travelled += self.step.magnitude();
-                Some(tile)
-            }
-            None => None,
-        }
-    }
 }
 
 impl Grid {
@@ -152,7 +89,7 @@ impl Grid {
                 return true;
             }
 
-            if tile.flags() == TileFlags::SOLID {
+            if tile.is_sight_blocker() {
                 return false;
             }
         }
@@ -289,43 +226,6 @@ impl Grid {
     }
 }
 
-bitflags::bitflags! {
-    #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-    pub struct TileFlags: u16 {
-        const PASSTHROUGH       = 0b000001;
-        const SIGHTBLOCKER      = 0b000010;
-
-        const SOLID             = 0b000010;
-    }
-}
-
-#[non_exhaustive]
-#[derive(Debug, PartialEq, Eq)]
-pub struct Material {
-    pub display_name: String,
-    pub resource_name: String,
-    pub obscured_resource_name: Option<String>,
-    pub flags: TileFlags,
-}
-
-impl Material {
-    pub fn new(
-        display_name: impl ToString,
-        resource_name: impl ToString,
-        obscured_resource_name: Option<impl ToString>,
-        flags: TileFlags,
-    ) -> MaterialHandle {
-        Rc::new(Material {
-            display_name: display_name.to_string(),
-            resource_name: resource_name.to_string(),
-            obscured_resource_name: obscured_resource_name.as_ref().map(ToString::to_string),
-            flags,
-        })
-    }
-}
-
-pub type MaterialHandle = Rc<Material>;
-
 #[derive(Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Tile {
@@ -339,11 +239,80 @@ impl Tile {
         self.occupier.is_some()
     }
 
-    pub fn flags(&self) -> TileFlags {
-        self.material.flags
+    pub fn is_sight_blocker(&self) -> bool {
+        self.material.flags.intersects(MaterialFlags::SIGHTBLOCKER)
+    }
+
+    pub fn is_walkable(&self) -> bool {
+        self.material.flags.intersects(MaterialFlags::PASSTHROUGH)
     }
 
     pub fn world_position(&self) -> Vec2 {
         [self.position.x as f32, self.position.y as f32].into()
+    }
+}
+
+#[non_exhaustive]
+pub struct RaycastIterator<'a> {
+    pub(crate) max_distance: f32,
+    pub(crate) distance_travelled: f32,
+    pub(crate) last_sampled_tile: Vec2,
+
+    pub(crate) grid: &'a Grid,
+    pub(crate) step: Vec2,
+    pub(crate) from: Position,
+}
+
+impl<'a> RaycastIterator<'a> {
+    pub fn new(
+        from: Position,
+        direction: Vec2,
+        max_distance: f32,
+        grid: &'a Grid,
+    ) -> RaycastIterator<'a> {
+        let direction = direction.normalize();
+        let step = if direction.x.abs() > direction.y.abs() {
+            vec2(direction.x.signum(), direction.y / direction.x.abs())
+        } else {
+            vec2(direction.x / direction.y.abs(), direction.y.signum())
+        };
+
+        Self {
+            from,
+            step,
+            grid,
+            max_distance,
+            distance_travelled: 0.,
+            last_sampled_tile: Vec2::zeros(),
+        }
+    }
+}
+
+impl<'a> Iterator for RaycastIterator<'a> {
+    type Item = &'a Tile;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.distance_travelled >= self.max_distance {
+            return None;
+        }
+
+        let sample_position = self.from
+            + Position::new(
+                self.last_sampled_tile.x.round() as i32,
+                self.last_sampled_tile.y.round() as i32,
+            );
+
+        let tile = self.grid.tile_at(sample_position);
+
+        let new_sampled_tile = self.last_sampled_tile + self.step;
+
+        match tile {
+            Some(tile) => {
+                self.last_sampled_tile = new_sampled_tile;
+                self.distance_travelled += self.step.magnitude();
+                Some(tile)
+            }
+            None => None,
+        }
     }
 }

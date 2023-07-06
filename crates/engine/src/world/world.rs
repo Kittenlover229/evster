@@ -1,4 +1,4 @@
-use crate::{Action, ActorReference, Grid, Position, TileFlags};
+use crate::{Action, ActorReference, Grid, Position, Tile};
 
 pub struct World {
     pub grid: Grid,
@@ -28,7 +28,7 @@ impl World {
         if self
             .grid
             .tile_at(destination)
-            .map(|x| x.flags() != TileFlags::PASSTHROUGH)
+            .map(Tile::is_walkable)
             .unwrap_or(false)
         {
             return false;
