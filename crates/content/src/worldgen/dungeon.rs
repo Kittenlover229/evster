@@ -1,29 +1,9 @@
-use engine::{AsPosition, Grid, MaterialHandle, Position};
+use engine::{AsPosition, Grid, MaterialHandle, Position, Rectangle, pos_to_vec2};
 use nalgebra_glm::{distance2, vec2};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::num::NonZeroU16;
 
 use crate::Sculptor;
-
-struct Room {
-    pub(crate) min: Position,
-    pub(crate) max: Position,
-}
-
-impl Room {
-    pub fn centroid(&self) -> Position {
-        self.min / 2 + self.max / 2
-    }
-
-    pub fn overlaps(&self, rhs: &Room) -> bool {
-        let (xmax1, xmax2) = (self.max.x, rhs.max.x);
-        let (ymax1, ymax2) = (self.max.y, rhs.max.y);
-        let (xmin1, xmin2) = (self.min.x, rhs.min.x);
-        let (ymin1, ymin2) = (self.min.y, rhs.min.y);
-
-        xmax1 >= xmin2 && xmax2 >= xmin1 && ymax1 >= ymin2 && ymax2 >= ymin1
-    }
-}
 
 #[non_exhaustive]
 pub struct DungeonSculptor {
@@ -63,7 +43,7 @@ impl Sculptor for DungeonSculptor {
     fn sculpt(&mut self, from: impl AsPosition, to: impl AsPosition, grid: &mut Grid) {
         let (from, to) = (from.into(), to.into());
 
-        let mut rooms: Vec<Room> = vec![];
+        let mut rooms: Vec<Rectangle> = vec![];
         for _ in 0..self.room_amount.into() {
             let new_room = 'try_make_room: loop {
                 // HACK: always spawn rooms at odd coordinates so the corridors never merge
@@ -78,10 +58,7 @@ impl Sculptor for DungeonSculptor {
                         .rng
                         .gen_range(self.min_room_size.y..self.max_room_size.y);
 
-                let potential_room = Room {
-                    min: Position::new(min_x, min_y),
-                    max: Position::new(max_x, max_y),
-                };
+                let potential_room = Rectangle::new([min_x, min_y], [max_x, max_y]);
 
                 for room in &rooms {
                     if room.overlaps(&potential_room) {
@@ -111,10 +88,10 @@ impl Sculptor for DungeonSculptor {
             let triangles = triangulate(&centroids[..]).triangles;
             for [a, b] in triangles.array_windows::<2>() {
                 let (a, b) = (*a, *b);
-                let ac = rooms[a].centroid();
-                let bc = rooms[b].centroid();
-                let ac = vec2(ac.x as f32, ac.y as f32);
-                let bc = vec2(bc.x as f32, bc.y as f32);
+                let ac = pos_to_vec2(rooms[a].centroid());
+                let bc = pos_to_vec2(rooms[b].centroid());
+                let ac = vec2(ac.x, ac.y);
+                let bc = vec2(bc.x, bc.y);
 
                 edges.push((a, b, distance2(&ac, &bc) as i32))
             }
@@ -170,7 +147,7 @@ impl Sculptor for DungeonSculptor {
         }
 
         for room in rooms {
-            grid.make_tile_box(room.min, room.max, self.floor.clone());
+            grid.make_tile_box(room.min(), room.max(), self.floor.clone());
         }
 
         // lol

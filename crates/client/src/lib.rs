@@ -1,7 +1,7 @@
 use std::{borrow::Borrow, num::NonZeroU16, rc::Rc};
 
 use content::{sculptors::DungeonSculptor, Sculptor};
-use nalgebra_glm::{Vec2, Vec3};
+use nalgebra_glm::{vec2_to_vec3, Vec2, Vec3};
 use winit::{
     dpi::PhysicalPosition,
     event::*,
@@ -13,8 +13,8 @@ use winit::{
 use wasm_bindgen::prelude::*;
 
 use engine::{
-    Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid, InputHandler, Instance,
-    Material, MaterialFlags, Position, Renderer, Tile, World,
+    pos_to_vec2, vec2_to_pos, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid,
+    InputHandler, Instance, Material, MaterialFlags, Position, Renderer, Tile, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -30,7 +30,7 @@ pub fn frame_from_world<'a>(
         },
     ) in &grid.grid
     {
-        if frame_builder.is_culled([pos.x as f32, pos.y as f32].into()) {
+        if frame_builder.is_culled(pos_to_vec2(*pos)) {
             continue;
         }
 
@@ -52,7 +52,7 @@ pub fn frame_from_world<'a>(
                 actor_sprite_idx,
                 Instance {
                     size: 1.0,
-                    pos: [pos.x as f32, pos.y as f32].into(),
+                    pos: pos_to_vec2(*pos),
                     layer: 2,
                     angle: 0.0,
                     tint: [255; 3],
@@ -66,7 +66,7 @@ pub fn frame_from_world<'a>(
             tile_sprite_idx,
             Instance {
                 size: 1.0,
-                pos: [pos.x as f32, pos.y as f32].into(),
+                pos: pos_to_vec2(*pos),
                 layer: 1,
                 angle: 0.0,
                 tint: if is_obscured { [25; 3] } else { [75; 3] },
@@ -188,7 +188,7 @@ pub fn run() -> anyhow::Result<()> {
         .grid
         .put_actor(start_tile, Actor::from_template(player));
 
-    renderer.camera.borrow_mut().position = [start_tile.x as f32, start_tile.y as f32, 0.].into();
+    renderer.camera.borrow_mut().position = vec2_to_vec3(&pos_to_vec2(start_tile));
 
     let mut cursor_pos = PhysicalPosition::default();
     let mut camera_inputs = Vec2::new(0., 0.);
@@ -253,8 +253,7 @@ pub fn run() -> anyhow::Result<()> {
                             .unwrap()
                             .cached_position;
 
-                        renderer.camera.borrow_mut().position =
-                            [player_pos.x as f32, player_pos.y as f32, 0.].into();
+                        renderer.camera.borrow_mut().position = vec2_to_vec3(&pos_to_vec2(player_pos));
                     }
 
                     if input_handler.is_pressed(Slash) {
@@ -299,8 +298,8 @@ pub fn run() -> anyhow::Result<()> {
             let mut frame_builder = renderer.begin_frame(&atlas);
 
             frame_builder.draw_debug(move |ui| {
-                let cursor_x = cursor_pos.x.round() as i32;
-                let cursor_y = cursor_pos.y.round() as i32;
+                let cursor_pos = vec2_to_pos(cursor_pos);
+                let (cursor_x, cursor_y) = (cursor_pos.x, cursor_pos.y);
                 ui.label(format!("World Cursor Position: ({cursor_x}, {cursor_y})"));
             });
 

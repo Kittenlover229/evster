@@ -1,4 +1,4 @@
-use std::mem::swap;
+use crate::{min_max_aabb_from_rect, pos_to_vec2, vec2_to_pos};
 
 use hashbrown::HashMap;
 use nalgebra_glm::{vec2, Vec2};
@@ -15,19 +15,6 @@ pub struct Grid {
     pub grid: hashbrown::HashMap<Position, Tile>,
 }
 
-fn min_max_aabb_from_rect(a: impl AsPosition, b: impl AsPosition) -> (Position, Position) {
-    let (mut a, mut b) = (a.into(), b.into());
-
-    if b.x < a.x {
-        swap(&mut a.x, &mut b.x);
-    }
-    if b.y < a.y {
-        swap(&mut a.y, &mut b.y);
-    }
-
-    (a, b)
-}
-
 impl Grid {
     pub fn new(width: u16, height: u16) -> Self {
         let mut grid = HashMap::default();
@@ -39,11 +26,11 @@ impl Grid {
         }
     }
 
-    pub fn tile_at_mut(&mut self, position: impl AsPosition) -> Option<&mut Tile> {
+    pub fn get_tile_mut(&mut self, position: impl AsPosition) -> Option<&mut Tile> {
         self.grid.get_mut(&position.into())
     }
 
-    pub fn tile_at(&self, position: impl AsPosition) -> Option<&Tile> {
+    pub fn get_tile(&self, position: impl AsPosition) -> Option<&Tile> {
         self.grid.get(&position.into())
     }
 
@@ -81,7 +68,7 @@ impl Grid {
             return true;
         }
 
-        let direction = Vec2::new((to.x - from.x) as f32, (to.y - from.y) as f32).normalize();
+        let direction = pos_to_vec2(to - from).normalize();
 
         let raycast = self.ray_cast(from, direction, max_distance);
         for tile in raycast {
@@ -189,10 +176,10 @@ impl Grid {
         from: impl AsPosition,
         to: impl AsPosition,
     ) -> Option<(Option<ActorReference>, ActorReference)> {
-        let mut actor = self.tile_at_mut(from).and_then(|x| x.occupier.take())?;
+        let mut actor = self.get_tile_mut(from).and_then(|x| x.occupier.take())?;
         let to = to.into();
 
-        let destination = self.tile_at_mut(to).map(|x| &mut x.occupier)?;
+        let destination = self.get_tile_mut(to).map(|x| &mut x.occupier)?;
         let mover = actor.as_weak();
 
         assert!(actor.get_data().is_valid());
@@ -213,7 +200,7 @@ impl Grid {
     pub fn put_actor(&mut self, position: impl AsPosition, actor: Actor) -> Option<ActorReference> {
         let position = position.into();
 
-        match self.tile_at_mut(position) {
+        match self.get_tile_mut(position) {
             Some(tile) => {
                 let handle = ActorHandle::from_actor(actor, position);
                 let weak = handle.as_weak();
@@ -248,7 +235,7 @@ impl Tile {
     }
 
     pub fn world_position(&self) -> Vec2 {
-        [self.position.x as f32, self.position.y as f32].into()
+        pos_to_vec2(self.position)
     }
 }
 
@@ -296,13 +283,9 @@ impl<'a> Iterator for RaycastIterator<'a> {
             return None;
         }
 
-        let sample_position = self.from
-            + Position::new(
-                self.last_sampled_tile.x.round() as i32,
-                self.last_sampled_tile.y.round() as i32,
-            );
+        let sample_position = self.from + vec2_to_pos(self.last_sampled_tile);
 
-        let tile = self.grid.tile_at(sample_position);
+        let tile = self.grid.get_tile(sample_position);
 
         let new_sampled_tile = self.last_sampled_tile + self.step;
 

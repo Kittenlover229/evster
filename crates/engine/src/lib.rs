@@ -9,7 +9,9 @@
 mod renderer;
 mod input;
 mod world;
+mod geometry;
 
 pub use renderer::*;
 pub use world::*;
 pub use input::*;
+pub use geometry::*;

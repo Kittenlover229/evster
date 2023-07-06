@@ -27,7 +27,7 @@ impl World {
 
         if self
             .grid
-            .tile_at(destination)
+            .get_tile(destination)
             .map(Tile::is_walkable)
             .unwrap_or(false)
         {
