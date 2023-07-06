@@ -1,20 +1,18 @@
 use std::{borrow::Borrow, num::NonZeroU16, rc::Rc};
 
 use content::{sculptors::DungeonSculptor, Sculptor};
+use engine::{
+    pos_to_vec2, vec2_to_pos, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid,
+    InputHandler, Instance, Material, MaterialFlags, Position, Renderer, Tile, World,
+};
 use nalgebra_glm::{vec2_to_vec3, Vec2, Vec3};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 use winit::{
     dpi::PhysicalPosition,
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
-};
-
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
-use engine::{
-    pos_to_vec2, vec2_to_pos, Actor, ActorTemplate, Atlas, AxialInput2D, FrameBuilder, Grid,
-    InputHandler, Instance, Material, MaterialFlags, Position, Renderer, Tile, World,
 };
 
 pub fn frame_from_world<'a>(
@@ -253,7 +251,8 @@ pub fn run() -> anyhow::Result<()> {
                             .unwrap()
                             .cached_position;
 
-                        renderer.camera.borrow_mut().position = vec2_to_vec3(&pos_to_vec2(player_pos));
+                        renderer.camera.borrow_mut().position =
+                            vec2_to_vec3(&pos_to_vec2(player_pos));
                     }
 
                     if input_handler.is_pressed(Slash) {

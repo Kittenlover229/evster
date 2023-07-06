@@ -1,7 +1,8 @@
-use engine::{AsPosition, Grid, MaterialHandle, Position, Rectangle, pos_to_vec2};
+use std::num::NonZeroU16;
+
+use engine::{pos_to_vec2, AsPosition, Grid, MaterialHandle, Position, Rectangle};
 use nalgebra_glm::{distance2, vec2};
 use rand::{rngs::ThreadRng, thread_rng, Rng};
-use std::num::NonZeroU16;
 
 use crate::Sculptor;
 

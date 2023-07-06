@@ -3,7 +3,10 @@ use crate::{ActorReference, AsPosition, Position};
 #[derive(Debug, Clone, Hash, PartialEq)]
 #[non_exhaustive]
 pub enum Action {
-    MoveActor { actor_ref: ActorReference, to: Position },
+    MoveActor {
+        actor_ref: ActorReference,
+        to: Position,
+    },
 }
 
 impl Action {

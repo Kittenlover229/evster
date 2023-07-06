@@ -1,5 +1,5 @@
-mod sculptor;
 mod dungeon;
+mod sculptor;
 
 pub use sculptor::*;
 

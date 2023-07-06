@@ -10,8 +10,8 @@ pub struct Camera {
 impl Camera {
     pub fn camera_culling_aabb(&self) -> (Vec2, Vec2) {
         /* TODO: proper fix of the edge culling */
-        let corner = vec2(self.ratio / self.zoom, 1. / self.zoom,) * 1.2;
-        let position =  vec3_to_vec2(&self.position);
+        let corner = vec2(self.ratio / self.zoom, 1. / self.zoom) * 1.2;
+        let position = vec3_to_vec2(&self.position);
         (position - corner, position + corner)
     }
 

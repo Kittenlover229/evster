@@ -206,9 +206,7 @@ impl Clone for ActorReference {
     fn clone(&self) -> Self {
         let (refs, _) = unsafe { &ActorData::from_ptr(self.heap).weak_keep_alive };
         refs.set(refs.get() + 1);
-        Self {
-            heap: self.heap,
-        }
+        Self { heap: self.heap }
     }
 }
 

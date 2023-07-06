@@ -1,9 +1,9 @@
-use nalgebra_glm::Vec2;
-use smallvec::{smallvec, SmallVec};
 use std::ops::Range;
 
 use hashbrown::HashMap;
 use image::GenericImageView;
+use nalgebra_glm::Vec2;
+use smallvec::{smallvec, SmallVec};
 use wgpu::util::DeviceExt;
 
 use crate::Vertex;

@@ -1,9 +1,8 @@
-use crate::{min_max_aabb_from_rect, pos_to_vec2, vec2_to_pos};
-
 use hashbrown::HashMap;
 use nalgebra_glm::{vec2, Vec2};
 use puffin_egui::puffin::profile_function;
 
+use crate::{min_max_aabb_from_rect, pos_to_vec2, vec2_to_pos};
 use crate::{
     Actor, ActorHandle, ActorReference, AsPosition, MaterialFlags, MaterialHandle, Position,
 };

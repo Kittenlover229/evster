@@ -1,6 +1,5 @@
 use std::cell::{Cell, OnceCell, RefCell};
 
-use self::egui::{Context as EguiContext, Renderer as EguiRenderer, Ui as EguiUI};
 use bytemuck::{Pod, Zeroable};
 use egui_wgpu::renderer::ScreenDescriptor;
 use glm::{vec4, Mat4};
@@ -10,6 +9,8 @@ use puffin_egui::puffin::{self, profile_function, profile_scope};
 use wgpu::{util::DeviceExt, BindGroup, BufferUsages};
 use winit::dpi::PhysicalPosition;
 use winit::window::Window;
+
+use self::egui::{Context as EguiContext, Renderer as EguiRenderer, Ui as EguiUI};
 
 mod atlas;
 mod camera;
