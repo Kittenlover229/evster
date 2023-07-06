@@ -48,7 +48,7 @@ impl Rectangle {
     }
 
     pub fn max(&self) -> Position {
-        self.min
+        self.max
     }
 
     pub fn centroid(&self) -> Position {
